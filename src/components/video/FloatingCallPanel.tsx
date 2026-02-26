@@ -15,9 +15,9 @@ export default function FloatingCallPanel() {
   const [pipActive, setPipActive] = useState(false);
 
   // Arbitrary size via drag resize
-  const [panelWidth, setPanelWidth] = useState(480);
-  const [panelHeight, setPanelHeight] = useState(400);
-  const MIN_W = 300; const MAX_W = 1200; const MIN_H = 250; const MAX_H = 900;
+  const [panelWidth, setPanelWidth] = useState(640);
+  const [panelHeight, setPanelHeight] = useState(520);
+  const MIN_W = 400; const MAX_W = 1200; const MIN_H = 380; const MAX_H = 900;
 
   // Dragging position
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
@@ -180,8 +180,8 @@ export default function FloatingCallPanel() {
         </div>
       </div>
 
-      {/* Video room - fills remaining space */}
-      <div className="flex-1 overflow-y-auto min-h-0">
+      {/* Video room - fills remaining space without scrolling */}
+      <div className="flex-1 min-h-0 flex flex-col">
         <VideoRoom
           workOrderId={activeWorkOrderId}
           compact

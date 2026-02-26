@@ -475,15 +475,14 @@ export default function VideoRoom({ workOrderId, onScreenshot, screenshotMode, c
   // ── In call: PiP active → compact UI with screenshot access ──
   if (pipActive) {
     return (
-      <div className="rounded-lg border bg-slate-900 overflow-hidden">
+      <div className={`rounded-lg border bg-slate-900 overflow-hidden ${compact ? 'flex flex-col h-full' : ''}`}>
         <video ref={captureVideoRef} autoPlay playsInline muted style={{ position: 'fixed', width: 1, height: 1, opacity: 0, pointerEvents: 'none', zIndex: -1 }} />
         <video ref={primaryCaptureRef} autoPlay playsInline muted style={{ position: 'fixed', width: 1, height: 1, opacity: 0, pointerEvents: 'none', zIndex: -1 }} />
-        <div className="p-4">
+        <div className={`p-4 ${compact ? 'flex-1 min-h-0 overflow-y-auto' : ''}`}>
           <div className="flex items-center gap-2 mb-3">
             <Video className="h-5 w-5 text-ocean" />
             <p className="text-white text-sm font-medium">Picture-in-Picture active</p>
           </div>
-          {/* Screenshot buttons for each stream */}
           {screenshotMode && onScreenshot && (
             <div className="space-y-1.5 mb-3">
               <p className="text-slate-400 text-xs">Capture screenshot from:</p>
@@ -500,16 +499,16 @@ export default function VideoRoom({ workOrderId, onScreenshot, screenshotMode, c
             </div>
           )}
         </div>
-        <div className="flex items-center justify-center gap-2 p-3 bg-slate-800">
-          <Button variant={audioEnabled ? 'outline' : 'destructive'} size="icon" onClick={toggleAudio} className="rounded-full h-10 w-10" disabled={hasNoAudioTrack}>
+        <div className="flex items-center justify-center gap-2 p-2 bg-slate-800 shrink-0">
+          <Button variant={audioEnabled ? 'outline' : 'destructive'} size="icon" onClick={toggleAudio} className="rounded-full h-9 w-9" disabled={hasNoAudioTrack}>
             {audioEnabled && !hasNoAudioTrack ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
           </Button>
-          <Button variant={videoEnabled ? 'outline' : 'destructive'} size="icon" onClick={toggleVideo} className="rounded-full h-10 w-10" disabled={hasNoVideoTrack && !screenSharing}>
+          <Button variant={videoEnabled ? 'outline' : 'destructive'} size="icon" onClick={toggleVideo} className="rounded-full h-9 w-9" disabled={hasNoVideoTrack && !screenSharing}>
             {videoEnabled ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
           </Button>
-          <Button variant={screenSharing ? 'default' : 'outline'} size="icon" onClick={toggleScreenShare} className="rounded-full h-10 w-10"><Monitor className="h-4 w-4" /></Button>
+          <Button variant={screenSharing ? 'default' : 'outline'} size="icon" onClick={toggleScreenShare} className="rounded-full h-9 w-9"><Monitor className="h-4 w-4" /></Button>
           <div className="mx-1" />
-          <Button variant="destructive" size="icon" onClick={leaveCall} className="rounded-full h-10 w-10"><PhoneOff className="h-4 w-4" /></Button>
+          <Button variant="destructive" size="icon" onClick={leaveCall} className="rounded-full h-9 w-9"><PhoneOff className="h-4 w-4" /></Button>
           <span className="ml-2 text-slate-400 text-xs flex items-center gap-1"><Users className="h-3 w-3" /> {roomCount}</span>
         </div>
       </div>
@@ -517,15 +516,19 @@ export default function VideoRoom({ workOrderId, onScreenshot, screenshotMode, c
   }
 
   // ── In call: full UI ──
+  const gridCols = !focusedPeer
+    ? (peerList.length <= 1 ? 'grid-cols-2' : peerList.length <= 3 ? 'grid-cols-2' : 'grid-cols-3')
+    : 'grid-cols-4';
+
   return (
-    <div className="rounded-lg border bg-slate-900 overflow-hidden">
-      {/* Capture videos: captureVideoRef=local stream, primaryCaptureRef=focused/primary stream */}
+    <div className={`rounded-lg border bg-slate-900 overflow-hidden ${compact ? 'flex flex-col h-full' : ''}`}>
+      {/* Hidden capture videos */}
       <video ref={captureVideoRef} autoPlay playsInline muted style={{ position: 'fixed', width: 1, height: 1, opacity: 0, pointerEvents: 'none', zIndex: -1 }} />
       <video ref={primaryCaptureRef} autoPlay playsInline muted style={{ position: 'fixed', width: 1, height: 1, opacity: 0, pointerEvents: 'none', zIndex: -1 }} />
 
       {/* Focused main video */}
       {focusedPeer && (
-        <div className="relative bg-black aspect-video">
+        <div className={`relative bg-black ${compact ? 'flex-1 min-h-0' : 'aspect-video'}`}>
           {focusedPeer === 'local' ? (
             <video ref={focusedVideoRef} autoPlay playsInline muted className="w-full h-full object-contain" />
           ) : (
@@ -546,8 +549,9 @@ export default function VideoRoom({ workOrderId, onScreenshot, screenshotMode, c
       )}
 
       {/* Grid */}
-      <div className={`grid gap-1 p-1 ${!focusedPeer ? (peerList.length <= 1 ? 'grid-cols-2' : peerList.length <= 3 ? 'grid-cols-2' : 'grid-cols-3') : 'grid-cols-4'}`}>
-        <div className={`relative bg-slate-800 rounded overflow-hidden cursor-pointer aspect-video ${focusedPeer === 'local' ? 'ring-2 ring-ocean' : ''}`}
+      <div className={`grid gap-1 p-1 ${gridCols} ${compact && !focusedPeer ? 'flex-1 min-h-0' : ''} ${compact && focusedPeer ? 'shrink-0' : ''}`}
+        style={compact && !focusedPeer ? { gridAutoRows: '1fr' } : undefined}>
+        <div className={`relative bg-slate-800 rounded overflow-hidden cursor-pointer ${compact ? 'min-h-0' : 'aspect-video'} ${focusedPeer === 'local' ? 'ring-2 ring-ocean' : ''}`}
           onClick={() => setFocusedPeer(focusedPeer === 'local' ? null : 'local')}>
           <video ref={localGridVideoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
           <div className="absolute bottom-1 left-1 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded">
@@ -559,7 +563,7 @@ export default function VideoRoom({ workOrderId, onScreenshot, screenshotMode, c
         </div>
         {peerList.map((peer) => (
           <div key={peer.socketId}
-            className={`relative bg-slate-800 rounded overflow-hidden cursor-pointer aspect-video ${focusedPeer === peer.socketId ? 'ring-2 ring-ocean' : ''}`}
+            className={`relative bg-slate-800 rounded overflow-hidden cursor-pointer ${compact ? 'min-h-0' : 'aspect-video'} ${focusedPeer === peer.socketId ? 'ring-2 ring-ocean' : ''}`}
             onClick={() => setFocusedPeer(focusedPeer === peer.socketId ? null : peer.socketId)}>
             {peer.stream ? (
               <PeerVideo peerId={peer.socketId} peers={peers} muted={!audioOutputEnabled} className="w-full h-full object-cover" />
@@ -573,25 +577,25 @@ export default function VideoRoom({ workOrderId, onScreenshot, screenshotMode, c
         ))}
       </div>
 
-      {/* Controls */}
-      <div className="flex items-center justify-center gap-2 p-3 bg-slate-800">
-        <Button variant={audioEnabled ? 'outline' : 'destructive'} size="icon" onClick={toggleAudio} className="rounded-full h-10 w-10" disabled={hasNoAudioTrack}>
+      {/* Controls - always visible at bottom */}
+      <div className="flex items-center justify-center gap-2 p-2 bg-slate-800 shrink-0">
+        <Button variant={audioEnabled ? 'outline' : 'destructive'} size="icon" onClick={toggleAudio} className="rounded-full h-9 w-9" disabled={hasNoAudioTrack}>
           {audioEnabled && !hasNoAudioTrack ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
         </Button>
-        <Button variant={videoEnabled ? 'outline' : 'destructive'} size="icon" onClick={toggleVideo} className="rounded-full h-10 w-10" disabled={hasNoVideoTrack && !screenSharing}>
+        <Button variant={videoEnabled ? 'outline' : 'destructive'} size="icon" onClick={toggleVideo} className="rounded-full h-9 w-9" disabled={hasNoVideoTrack && !screenSharing}>
           {videoEnabled ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
         </Button>
-        <Button variant={screenSharing ? 'default' : 'outline'} size="icon" onClick={toggleScreenShare} className="rounded-full h-10 w-10" title="Share screen">
+        <Button variant={screenSharing ? 'default' : 'outline'} size="icon" onClick={toggleScreenShare} className="rounded-full h-9 w-9" title="Share screen">
           <Monitor className="h-4 w-4" />
         </Button>
-        <Button variant={audioOutputEnabled ? 'outline' : 'destructive'} size="icon" onClick={() => setAudioOutputEnabled(!audioOutputEnabled)} className="rounded-full h-10 w-10">
+        <Button variant={audioOutputEnabled ? 'outline' : 'destructive'} size="icon" onClick={() => setAudioOutputEnabled(!audioOutputEnabled)} className="rounded-full h-9 w-9">
           {audioOutputEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
         </Button>
         {screenshotMode && focusedPeer && onScreenshot && (
-          <Button onClick={takeScreenshot} className="rounded-full h-10 bg-ocean hover:bg-ocean/80" size="sm"><Camera className="h-4 w-4 mr-1" /> Capture</Button>
+          <Button onClick={takeScreenshot} className="rounded-full h-9 bg-ocean hover:bg-ocean/80" size="sm"><Camera className="h-4 w-4 mr-1" /> Capture</Button>
         )}
         <div className="mx-1" />
-        <Button variant="destructive" size="icon" onClick={leaveCall} className="rounded-full h-10 w-10"><PhoneOff className="h-4 w-4" /></Button>
+        <Button variant="destructive" size="icon" onClick={leaveCall} className="rounded-full h-9 w-9"><PhoneOff className="h-4 w-4" /></Button>
         <span className="ml-2 text-slate-400 text-xs flex items-center gap-1"><Users className="h-3 w-3" /> {roomCount}</span>
       </div>
     </div>

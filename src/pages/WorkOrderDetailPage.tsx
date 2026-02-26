@@ -48,13 +48,27 @@ function parseAttachmentItems(rawAttachments: unknown): AttachmentLike[] {
   }
 }
 
+function toImageSrc(raw: string): string {
+  if (!raw) return '';
+  if (/^https?:\/\//i.test(raw) || /^data:/i.test(raw) || /^blob:/i.test(raw)) return raw;
+  const apiBase = (import.meta.env.VITE_API_URL as string | undefined)?.trim() || 'http://localhost:3001';
+  const origin = (() => {
+    try {
+      return new URL(apiBase).origin;
+    } catch {
+      return apiBase.replace(/\/+$/, '');
+    }
+  })();
+  return `${origin.replace(/\/+$/, '')}/${raw.replace(/^\/+/, '')}`;
+}
+
 function resolveAttachmentPreviewSource(item: AttachmentLike): string | null {
   if (typeof item === 'string') {
-    return /^(data:|https?:\/\/|blob:|\/)/i.test(item) ? item : null;
+    return toImageSrc(item);
   }
   if (!item || typeof item !== 'object') return null;
   const candidate = (item as any).mediaUrl || item.fullApiUrl || item.fullUri || item.url;
-  return typeof candidate === 'string' ? candidate : null;
+  return typeof candidate === 'string' ? toImageSrc(candidate) : null;
 }
 
 function dataUrlToFile(dataUrl: string, fileName: string): File {
