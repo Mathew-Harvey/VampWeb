@@ -23,6 +23,7 @@ import { WORK_ORDER_STATUSES, WORK_ORDER_TYPES } from '@/constants/work-order-st
 import { FOULING_RATINGS } from '@/constants/fouling-ratings';
 import { useState, useCallback, useEffect } from 'react';
 import { useMediaUpload } from '@/hooks/useMediaUpload';
+import ReportSettingsPanel from '@/components/reports/ReportSettingsPanel';
 
 type AttachmentLike =
   | string
@@ -178,49 +179,53 @@ export default function WorkOrderDetailPage() {
 
         {/* Work Form Tab */}
         <TabsContent value="form">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Component Inspection Form</CardTitle>
-                <p className="text-sm text-muted-foreground mt-1">Auto-generated from vessel general arrangement. Changes sync in real-time.</p>
-              </div>
-              {!hasForm && (
-                <Button onClick={() => generateForm.mutate()} disabled={generateForm.isPending}>
-                  {generateForm.isPending ? 'Generating...' : 'Generate Form'}
-                </Button>
-              )}
-              {hasForm && (
-                <div className="text-right">
-                  <p className="text-sm font-medium">{completedEntries} / {totalEntries} completed</p>
-                  <div className="w-32 h-2 bg-muted rounded-full mt-1">
-                    <div className="h-2 bg-ocean rounded-full transition-all" style={{ width: `${totalEntries ? (completedEntries / totalEntries) * 100 : 0}%` }} />
+          <div className="space-y-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Component Inspection Form</CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">Auto-generated from vessel general arrangement. Changes sync in real-time.</p>
+                </div>
+                {!hasForm && (
+                  <Button onClick={() => generateForm.mutate()} disabled={generateForm.isPending}>
+                    {generateForm.isPending ? 'Generating...' : 'Generate Form'}
+                  </Button>
+                )}
+                {hasForm && (
+                  <div className="text-right">
+                    <p className="text-sm font-medium">{completedEntries} / {totalEntries} completed</p>
+                    <div className="w-32 h-2 bg-muted rounded-full mt-1">
+                      <div className="h-2 bg-ocean rounded-full transition-all" style={{ width: `${totalEntries ? (completedEntries / totalEntries) * 100 : 0}%` }} />
+                    </div>
                   </div>
-                </div>
-              )}
-            </CardHeader>
-            <CardContent>
-              {!hasForm ? (
-                <div className="text-center py-12">
-                  <ClipboardCheck className="mx-auto h-12 w-12 text-muted-foreground/50" />
-                  <p className="mt-2 text-muted-foreground">Click "Generate Form" to create inspection entries from the vessel's components</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {formEntries.map((entry: any) => (
-                    <FormEntryCard
-                      key={entry.id}
-                      entry={entry}
-                      isActive={activeEntryId === entry.id}
-                      onToggle={() => handleToggleEntry(entry.id)}
-                      collab={collab}
-                      workOrderId={id!}
-                      workOrderTitle={wo?.title || ''}
-                    />
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                )}
+              </CardHeader>
+              <CardContent>
+                {!hasForm ? (
+                  <div className="text-center py-12">
+                    <ClipboardCheck className="mx-auto h-12 w-12 text-muted-foreground/50" />
+                    <p className="mt-2 text-muted-foreground">Click "Generate Form" to create inspection entries from the vessel's components</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {formEntries.map((entry: any) => (
+                      <FormEntryCard
+                        key={entry.id}
+                        entry={entry}
+                        isActive={activeEntryId === entry.id}
+                        onToggle={() => handleToggleEntry(entry.id)}
+                        collab={collab}
+                        workOrderId={id!}
+                        workOrderTitle={wo?.title || ''}
+                      />
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <ReportSettingsPanel workOrderId={id!} />
+          </div>
         </TabsContent>
 
         {/* Video Call Tab */}

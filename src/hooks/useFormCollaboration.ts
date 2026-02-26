@@ -31,6 +31,12 @@ export type FormAttachment =
       fullUri?: string;
     };
 
+function hasMediaIdAttachment(attachment: FormAttachment): attachment is { mediaId: string } {
+  return typeof attachment === 'object' && attachment !== null
+    && typeof (attachment as any).mediaId === 'string'
+    && (attachment as any).mediaId.length > 0;
+}
+
 export interface FormCollaboration {
   connected: boolean;
   callActive: boolean;
@@ -176,6 +182,15 @@ export function useFormCollaboration(workOrderId: string): FormCollaboration {
   }, [workOrderId]);
 
   const addScreenshot = useCallback((entryId: string, attachment: FormAttachment) => {
+    if (hasMediaIdAttachment(attachment)) {
+      socketRef.current?.emit('form:screenshot-media', {
+        workOrderId,
+        entryId,
+        mediaId: attachment.mediaId,
+      });
+      return;
+    }
+    // Backward-compatible path for servers still handling base64/ws payloads.
     socketRef.current?.emit('form:screenshot', { workOrderId, entryId, dataUrl: attachment });
   }, [workOrderId]);
 

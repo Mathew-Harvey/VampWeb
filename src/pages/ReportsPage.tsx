@@ -63,7 +63,7 @@ export default function ReportsPage() {
     if (!workOrderId) return;
 
     if (reportType === 'inspection') {
-      const url = reportsApi.getPreviewUrl(workOrderId);
+      const url = reportsApi.getViewUrl(workOrderId);
       window.open(url, '_blank', 'noopener,noreferrer');
       setReportType(null);
       return;
@@ -170,7 +170,7 @@ export default function ReportsPage() {
             )}
             <Button onClick={handleConfirmGenerate} disabled={!canConfirm || isGenerating}>
               {isGenerating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {reportType === 'inspection' ? 'Open report' : 'Generate'}
+              {reportType === 'inspection' ? 'Open viewer' : 'Generate'}
             </Button>
           </DialogFooter>
         </DialogContent>
