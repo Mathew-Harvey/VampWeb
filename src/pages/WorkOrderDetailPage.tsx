@@ -22,6 +22,51 @@ import { formatDate, formatDateTime, formatRelative } from '@/utils/formatters';
 import { WORK_ORDER_STATUSES, WORK_ORDER_TYPES } from '@/constants/work-order-status';
 import { FOULING_RATINGS } from '@/constants/fouling-ratings';
 import { useState, useCallback, useEffect } from 'react';
+import { useMediaUpload } from '@/hooks/useMediaUpload';
+
+type AttachmentLike =
+  | string
+  | {
+      mediaId?: string;
+      title?: string;
+      path?: string;
+      url?: string;
+      fullApiUrl?: string;
+      fullUri?: string;
+    };
+
+function parseAttachmentItems(rawAttachments: unknown): AttachmentLike[] {
+  try {
+    if (typeof rawAttachments === 'string') {
+      const parsed = JSON.parse(rawAttachments);
+      return Array.isArray(parsed) ? parsed : [];
+    }
+    return Array.isArray(rawAttachments) ? rawAttachments : [];
+  } catch {
+    return [];
+  }
+}
+
+function resolveAttachmentPreviewSource(item: AttachmentLike): string | null {
+  if (typeof item === 'string') {
+    return /^(data:|https?:\/\/|blob:|\/)/i.test(item) ? item : null;
+  }
+  if (!item || typeof item !== 'object') return null;
+  const candidate = item.fullApiUrl || item.fullUri || item.url;
+  return typeof candidate === 'string' ? candidate : null;
+}
+
+function dataUrlToFile(dataUrl: string, fileName: string): File {
+  const parts = dataUrl.split(',');
+  const header = parts[0] || '';
+  const payload = parts[1] || '';
+  const mimeMatch = header.match(/data:(.*?);base64/);
+  const mime = mimeMatch?.[1] || 'image/jpeg';
+  const binary = atob(payload);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return new File([bytes], fileName, { type: mime });
+}
 
 export default function WorkOrderDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -320,6 +365,7 @@ function FormEntryCard({ entry, isActive, onToggle, collab, workOrderId, workOrd
   workOrderTitle: string;
 }) {
   const { isInCall, activeWorkOrderId, startCall } = useCallStore();
+  const mediaUpload = useMediaUpload();
   const comp = entry.vesselComponent;
   const liveStatus = collab.liveStatuses.get(entry.id) || entry.status;
   const isCompleted = liveStatus === 'COMPLETED';
@@ -336,12 +382,13 @@ function FormEntryCard({ entry, isActive, onToggle, collab, workOrderId, workOrd
 
   const liveAtt = collab.liveAttachments.get(entry.id);
   const rawAttachments = liveAtt ?? entry.attachments ?? '[]';
-  const allPhotos: string[] = (() => {
-    try {
-      const arr = typeof rawAttachments === 'string' ? JSON.parse(rawAttachments) : (Array.isArray(rawAttachments) ? rawAttachments : []);
-      return (arr || []).filter((a: any) => typeof a === 'string');
-    } catch { return []; }
-  })();
+  const attachmentItems = parseAttachmentItems(rawAttachments);
+  const allPhotos = attachmentItems
+    .map((item, index) => ({
+      index,
+      src: resolveAttachmentPreviewSource(item),
+    }))
+    .filter((photo): photo is { index: number; src: string } => !!photo.src);
 
   const onFieldChange = (field: string, value: any) => collab.updateField(entry.id, field, value);
   const onFocus = (field: string) => collab.lockField(entry.id, field);
@@ -357,10 +404,24 @@ function FormEntryCard({ entry, isActive, onToggle, collab, workOrderId, workOrd
 
     // Set callback first, then immediately invoke capture.
     // Zustand getState() is synchronous so the callback is available instantly.
-    useCallStore.getState().setScreenshotTarget(entry.id, (dataUrl: string) => {
-      collab.addScreenshot(entry.id, dataUrl);
-      useCallStore.getState().setScreenshotTarget(null, null);
-      setCapturing(false);
+    useCallStore.getState().setScreenshotTarget(entry.id, async (dataUrl: string) => {
+      try {
+        const now = Date.now();
+        const file = dataUrlToFile(dataUrl, `work-order-${workOrderId}-${entry.id}-${now}.jpg`);
+        const uploaded = await mediaUpload.mutateAsync({ file, workOrderId });
+        collab.addScreenshot(entry.id, {
+          mediaId: uploaded.id,
+          title: uploaded.originalName || `${comp?.name || 'Evidence'} ${attachmentItems.length + 1}`,
+          path: comp?.name || '',
+          url: uploaded.url,
+        });
+      } catch {
+        // Fallback to raw data URL so evidence is not lost if upload fails
+        collab.addScreenshot(entry.id, dataUrl);
+      } finally {
+        useCallStore.getState().setScreenshotTarget(null, null);
+        setCapturing(false);
+      }
     });
 
     const fn = useCallStore.getState().captureFunction;
@@ -505,10 +566,10 @@ function FormEntryCard({ entry, isActive, onToggle, collab, workOrderId, workOrd
             </div>
             {allPhotos.length > 0 && (
               <div className="grid grid-cols-4 gap-2">
-                {allPhotos.map((photo: string, i: number) => (
-                  <div key={i} className="relative group rounded-lg overflow-hidden border aspect-[4/3]">
-                    <img src={photo} alt={`Evidence ${i + 1}`} className="w-full h-full object-cover" />
-                    <button onClick={() => collab.removeScreenshot(entry.id, i)}
+                {allPhotos.map((photo, i) => (
+                  <div key={`${photo.index}-${i}`} className="relative group rounded-lg overflow-hidden border aspect-[4/3]">
+                    <img src={photo.src} alt={`Evidence ${i + 1}`} className="w-full h-full object-cover" />
+                    <button onClick={() => collab.removeScreenshot(entry.id, photo.index)}
                       className="absolute top-1 right-1 bg-black/60 text-white p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">
                       <X className="h-3 w-3" />
                     </button>

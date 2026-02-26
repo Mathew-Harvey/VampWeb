@@ -7,10 +7,23 @@ export const reportsApi = {
   generate: (type: 'inspection' | 'work-order', workOrderId: string) =>
     apiClient.post<{ data: any }>(`${BASE}/generate`, { type, workOrderId }),
 
+  /** Debug endpoint: returns report build context payload before HTML rendering. */
+  getContext: (workOrderId: string) =>
+    apiClient.get<{ data: any }>(`${BASE}/context/${workOrderId}`),
+
   /** Absolute URL for report preview (open in new tab; cookies sent same-origin). */
   getPreviewUrl: (workOrderId: string) => {
     const base = (import.meta.env.VITE_API_URL as string)?.replace(/\/+$/, '');
     const path = `${BASE}/preview/${workOrderId}`;
+    if (base) return `${base}${path}`;
+    if (typeof window !== 'undefined') return `${window.location.origin}/api/v1${path}`;
+    return `/api/v1${path}`;
+  },
+
+  /** Absolute URL for report context (debug/integration checks). */
+  getContextUrl: (workOrderId: string) => {
+    const base = (import.meta.env.VITE_API_URL as string)?.replace(/\/+$/, '');
+    const path = `${BASE}/context/${workOrderId}`;
     if (base) return `${base}${path}`;
     if (typeof window !== 'undefined') return `${window.location.origin}/api/v1${path}`;
     return `/api/v1${path}`;

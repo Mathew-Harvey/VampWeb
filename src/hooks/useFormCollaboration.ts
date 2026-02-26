@@ -20,6 +20,17 @@ interface FieldLock {
   userName: string;
 }
 
+export type FormAttachment =
+  | string
+  | {
+      mediaId?: string;
+      title?: string;
+      path?: string;
+      url?: string;
+      fullApiUrl?: string;
+      fullUri?: string;
+    };
+
 export interface FormCollaboration {
   connected: boolean;
   callActive: boolean;
@@ -35,7 +46,7 @@ export interface FormCollaboration {
   getLiveValue: (entryId: string, field: string, defaultValue: any) => any;
   updateField: (entryId: string, field: string, value: any) => void;
   // Screenshots
-  addScreenshot: (entryId: string, dataUrl: string) => void;
+  addScreenshot: (entryId: string, attachment: FormAttachment) => void;
   removeScreenshot: (entryId: string, index: number) => void;
   liveAttachments: Map<string, string>;
   // Mark complete
@@ -164,8 +175,8 @@ export function useFormCollaboration(workOrderId: string): FormCollaboration {
     }, 300));
   }, [workOrderId]);
 
-  const addScreenshot = useCallback((entryId: string, dataUrl: string) => {
-    socketRef.current?.emit('form:screenshot', { workOrderId, entryId, dataUrl });
+  const addScreenshot = useCallback((entryId: string, attachment: FormAttachment) => {
+    socketRef.current?.emit('form:screenshot', { workOrderId, entryId, dataUrl: attachment });
   }, [workOrderId]);
 
   const removeScreenshot = useCallback((entryId: string, index: number) => {

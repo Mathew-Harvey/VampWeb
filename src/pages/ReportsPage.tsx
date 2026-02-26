@@ -86,6 +86,12 @@ export default function ReportsPage() {
     );
   };
 
+  const handleOpenContext = () => {
+    if (!workOrderId) return;
+    const url = reportsApi.getContextUrl(workOrderId);
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
   const needsWorkOrder = reportType === 'inspection' || reportType === 'work-order';
   const canConfirm = workOrderId && needsWorkOrder;
   const isGenerating = generateMutation.isPending;
@@ -129,7 +135,7 @@ export default function ReportsPage() {
               {reportType === 'inspection' ? 'Inspection Report' : 'Work Order Report'}
             </DialogTitle>
             <DialogDescription>
-              Select a work order to generate the report.
+              Select a work order. Use context for integration/debug, preview/generate for final output.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -157,6 +163,11 @@ export default function ReportsPage() {
             <Button variant="outline" onClick={() => setReportType(null)}>
               Cancel
             </Button>
+            {reportType === 'inspection' && (
+              <Button variant="outline" onClick={handleOpenContext} disabled={!canConfirm || isGenerating}>
+                Open context (debug)
+              </Button>
+            )}
             <Button onClick={handleConfirmGenerate} disabled={!canConfirm || isGenerating}>
               {isGenerating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {reportType === 'inspection' ? 'Open report' : 'Generate'}
