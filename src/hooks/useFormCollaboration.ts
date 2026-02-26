@@ -54,7 +54,7 @@ export interface FormCollaboration {
   // Screenshots
   addScreenshot: (entryId: string, attachment: FormAttachment) => void;
   removeScreenshot: (entryId: string, index: number) => void;
-  liveAttachments: Map<string, string>;
+  liveAttachments: Map<string, unknown>;
   // Mark complete
   completeEntry: (entryId: string) => void;
   liveStatuses: Map<string, string>;
@@ -67,7 +67,26 @@ export function useFormCollaboration(workOrderId: string): FormCollaboration {
   const [callParticipantCount, setCallParticipantCount] = useState(0);
   const [locks, setLocks] = useState<Map<string, FieldLock>>(new Map());
   const [liveData, setLiveData] = useState<Map<string, Record<string, any>>>(new Map());
-  const [liveAttachments, setLiveAttachments] = useState<Map<string, string>>(new Map());
+  const [liveAttachments, setLiveAttachments] = useState<Map<string, unknown>>(new Map());
+  const mergeMediaUrl = (attachments: unknown, mediaUrl?: string): unknown => {
+    if (!mediaUrl) return attachments;
+    let list: unknown[] = [];
+    if (Array.isArray(attachments)) {
+      list = [...attachments];
+    } else if (typeof attachments === 'string') {
+      try {
+        const parsed = JSON.parse(attachments);
+        list = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        list = [];
+      }
+    }
+    if (!list.some((a) => a === mediaUrl || (a && typeof a === 'object' && (a as any).url === mediaUrl))) {
+      list.push(mediaUrl);
+    }
+    return list;
+  };
+
   const [liveStatuses, setLiveStatuses] = useState<Map<string, string>>(new Map());
   const socketRef = useRef<Socket | null>(null);
   const debounceTimers = useRef<Map<string, NodeJS.Timeout>>(new Map());
@@ -116,8 +135,12 @@ export function useFormCollaboration(workOrderId: string): FormCollaboration {
     });
 
     // Screenshot events
-    s.on('form:screenshot-added', ({ entryId, attachments }: any) => {
-      setLiveAttachments((prev) => { const next = new Map(prev); next.set(entryId, attachments); return next; });
+    s.on('form:screenshot-added', ({ entryId, attachments, mediaUrl }: any) => {
+      setLiveAttachments((prev) => {
+        const next = new Map(prev);
+        next.set(entryId, mergeMediaUrl(attachments, mediaUrl));
+        return next;
+      });
     });
     s.on('form:screenshot-removed', ({ entryId, attachments }: any) => {
       setLiveAttachments((prev) => { const next = new Map(prev); next.set(entryId, attachments); return next; });

@@ -53,7 +53,7 @@ function resolveAttachmentPreviewSource(item: AttachmentLike): string | null {
     return /^(data:|https?:\/\/|blob:|\/)/i.test(item) ? item : null;
   }
   if (!item || typeof item !== 'object') return null;
-  const candidate = item.fullApiUrl || item.fullUri || item.url;
+  const candidate = (item as any).mediaUrl || item.fullApiUrl || item.fullUri || item.url;
   return typeof candidate === 'string' ? candidate : null;
 }
 
