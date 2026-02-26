@@ -386,10 +386,60 @@
 
 
 
+        @page {
+            size: A4;
+            margin: 17mm;
+        }
+
         @media screen {
-                {
-                size: A4;
-                margin: 17mm 17mm 17mm 17mm;
+            html {
+                background: #525659;
+            }
+
+            body {
+                background: transparent;
+                width: 210mm;
+                max-width: none;
+                margin: 0 auto;
+                padding: 30px 0;
+            }
+
+            .page-header {
+                position: static;
+                width: auto;
+                background: white;
+                box-shadow: 0 1px 6px rgba(0, 0, 0, 0.4);
+                padding: 5px 17mm 0;
+                box-sizing: border-box;
+            }
+
+            .page-header-space {
+                display: none;
+            }
+
+            .page-footer-cover {
+                display: none;
+            }
+
+            .section > table {
+                border: none;
+                background: transparent;
+            }
+
+            .section > table > thead > tr > td,
+            .section > table > tbody > tr > td {
+                width: 100% !important;
+            }
+
+            .page,
+            .pageLast {
+                background: white;
+                min-height: 297mm;
+                padding: 15mm 17mm;
+                margin: 0 0 30px 0;
+                box-shadow: 0 1px 6px rgba(0, 0, 0, 0.4);
+                box-sizing: border-box;
+                width: 100%;
             }
         }
 
