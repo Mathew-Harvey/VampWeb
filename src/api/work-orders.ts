@@ -22,4 +22,7 @@ export const workOrdersApi = {
   addComment: (id: string, content: string, parentId?: string) =>
     apiClient.post(`/work-orders/${id}/comments`, { content, parentId }),
   delete: (id: string) => apiClient.delete(`/work-orders/${id}`),
+  getForm: (id: string) => apiClient.get(`/work-orders/${id}/form`),
+  updateFormEntry: (workOrderId: string, entryId: string, data: Record<string, unknown>) =>
+    apiClient.patch(`/work-orders/${workOrderId}/form/entries/${entryId}`, data),
 };

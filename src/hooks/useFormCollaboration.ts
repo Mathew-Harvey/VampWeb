@@ -1,6 +1,17 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuthStore } from '@/stores/auth.store';
+import { workOrdersApi } from '@/api/work-orders';
+
+function getSocketServerOrigin(): string {
+  const apiBase = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
+  if (!apiBase) return window.location.origin;
+  try {
+    return new URL(apiBase).origin;
+  } catch {
+    return window.location.origin;
+  }
+}
 
 interface FieldLock {
   entryId: string;
@@ -45,7 +56,7 @@ export function useFormCollaboration(workOrderId: string): FormCollaboration {
   const debounceTimers = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   useEffect(() => {
-    const s = io(window.location.origin, {
+    const s = io(getSocketServerOrigin(), {
       path: '/socket.io',
       auth: { token: accessToken },
       transports: ['polling', 'websocket'],
@@ -146,6 +157,9 @@ export function useFormCollaboration(workOrderId: string): FormCollaboration {
     if (existing) clearTimeout(existing);
     debounceTimers.current.set(key, setTimeout(() => {
       socketRef.current?.emit('form:update', { workOrderId, entryId, field, value });
+      workOrdersApi.updateFormEntry(workOrderId, entryId, { [field]: value }).catch((err) => {
+        console.warn('Form entry persist failed:', err);
+      });
       debounceTimers.current.delete(key);
     }, 300));
   }, [workOrderId]);
@@ -160,6 +174,9 @@ export function useFormCollaboration(workOrderId: string): FormCollaboration {
 
   const completeEntry = useCallback((entryId: string) => {
     socketRef.current?.emit('form:complete', { workOrderId, entryId });
+    workOrdersApi.updateFormEntry(workOrderId, entryId, { status: 'COMPLETED' }).catch((err) => {
+      console.warn('Form entry complete persist failed:', err);
+    });
   }, [workOrderId]);
 
   return {

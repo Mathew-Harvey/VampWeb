@@ -5,6 +5,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import JoinWorkOrderPage from './pages/JoinWorkOrderPage';
 import DashboardPage from './pages/DashboardPage';
 import VesselsPage from './pages/VesselsPage';
 import VesselDetailPage from './pages/VesselDetailPage';
@@ -36,6 +37,7 @@ export default function App() {
       <Route path="/register" element={<GuestRoute><RegisterPage /></GuestRoute>} />
       <Route path="/forgot-password" element={<GuestRoute><ForgotPasswordPage /></GuestRoute>} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/join-work-order" element={<JoinWorkOrderPage />} />
 
       {/* Protected app routes */}
       <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>

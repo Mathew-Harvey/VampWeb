@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
-import { UserPlus, Mail, Shield, Edit, Eye, Trash2, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
+import { UserPlus, Mail, Shield, Edit, Eye, Trash2, CheckCircle, AlertTriangle, XCircle, Copy, ExternalLink } from 'lucide-react';
 
 const PERMISSIONS = {
   READ: { label: 'View only', icon: Eye, color: 'text-slate-500' },
@@ -102,7 +102,7 @@ export default function InviteDialog({ workOrderId, assignments = [] }: InviteDi
 
           {/* Result feedback */}
           {result && (
-            <ResultBanner result={result} />
+            <ResultBanner result={result} workOrderId={workOrderId} />
           )}
 
           {invite.error && (
@@ -169,11 +169,24 @@ export default function InviteDialog({ workOrderId, assignments = [] }: InviteDi
   );
 }
 
-function ResultBanner({ result }: { result: any }) {
+function ResultBanner({ result, workOrderId }: { result: any; workOrderId: string }) {
+  const [copied, setCopied] = useState<string | null>(null);
   const emailFailed = result.emailSent === false;
   const isInvited = result.status === 'invited';
   const isAssigned = result.status === 'assigned';
   const isUpdated = result.status === 'updated';
+  const manualShare = result.manualShare;
+  const directUrl = result.directUrl || `${window.location.origin}/work-orders/${workOrderId}`;
+
+  const copyText = async (value: string, key: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(key);
+      setTimeout(() => setCopied((prev) => (prev === key ? null : prev)), 1800);
+    } catch {
+      setCopied(null);
+    }
+  };
 
   return (
     <div className={`rounded-md p-3 text-sm ${
@@ -213,6 +226,58 @@ function ResultBanner({ result }: { result: any }) {
           )}
         </div>
       </div>
+
+      {(manualShare?.inviteUrl || directUrl) && (
+        <div className="mt-3 rounded-md border border-slate-200 bg-white p-3 space-y-2">
+          <p className="text-xs font-medium text-slate-700">Manual share options</p>
+
+          {manualShare?.inviteUrl && (
+            <div className="space-y-1">
+              <p className="text-[11px] text-muted-foreground">Invite URL</p>
+              <div className="flex items-center gap-2">
+                <Input readOnly value={manualShare.inviteUrl} className="h-8 text-xs bg-slate-50" />
+                <Button type="button" variant="outline" size="sm" className="h-8" onClick={() => copyText(manualShare.inviteUrl, 'url')}>
+                  <Copy className="h-3 w-3 mr-1" /> {copied === 'url' ? 'Copied' : 'Copy'}
+                </Button>
+                <a href={manualShare.inviteUrl} target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-slate-700">
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+              </div>
+            </div>
+          )}
+
+          {manualShare?.inviteCode && (
+            <div className="space-y-1">
+              <p className="text-[11px] text-muted-foreground">Invite code</p>
+              <div className="flex items-center gap-2">
+                <Input readOnly value={manualShare.inviteCode} className="h-8 w-[160px] text-xs font-semibold tracking-wide bg-slate-50" />
+                <Button type="button" variant="outline" size="sm" className="h-8" onClick={() => copyText(manualShare.inviteCode, 'code')}>
+                  <Copy className="h-3 w-3 mr-1" /> {copied === 'code' ? 'Copied' : 'Copy'}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {manualShare?.qrCodeUrl && (
+            <div className="pt-1">
+              <p className="text-[11px] text-muted-foreground mb-1">QR code (mobile quick join)</p>
+              <img src={manualShare.qrCodeUrl} alt="Invite QR code" className="h-28 w-28 rounded border bg-white" />
+            </div>
+          )}
+
+          {!manualShare?.inviteUrl && (
+            <div className="space-y-1">
+              <p className="text-[11px] text-muted-foreground">Direct work order URL</p>
+              <div className="flex items-center gap-2">
+                <Input readOnly value={directUrl} className="h-8 text-xs bg-slate-50" />
+                <Button type="button" variant="outline" size="sm" className="h-8" onClick={() => copyText(directUrl, 'direct')}>
+                  <Copy className="h-3 w-3 mr-1" /> {copied === 'direct' ? 'Copied' : 'Copy'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

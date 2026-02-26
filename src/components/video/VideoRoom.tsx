@@ -55,8 +55,10 @@ export default function VideoRoom({ workOrderId, onScreenshot, screenshotMode, c
   // Separate refs for grid and focused local video so both can show simultaneously
   const localGridVideoRef = useRef<HTMLVideoElement>(null);
   const focusedVideoRef = useRef<HTMLVideoElement>(null);
-  // Hidden video element for screenshot capture (always has stream, even in PiP)
+  // Hidden video element for screenshot capture (always has local stream, even in PiP)
   const captureVideoRef = useRef<HTMLVideoElement>(null);
+  // Hidden video that always tracks the primary/focused stream for reliable capture
+  const primaryCaptureRef = useRef<HTMLVideoElement>(null);
   const peersRef = useRef<Map<string, Peer>>(new Map());
   const localStreamRef = useRef<MediaStream | null>(null);
   const socketRef = useRef<Socket | null>(null);
@@ -74,6 +76,17 @@ export default function VideoRoom({ workOrderId, onScreenshot, screenshotMode, c
       if (captureVideoRef.current) captureVideoRef.current.srcObject = localStream;
     }
   }, [localStream, focusedPeer]);
+
+  // Keep primaryCaptureRef in sync with the focused/primary stream
+  useEffect(() => {
+    const ref = primaryCaptureRef.current;
+    if (!ref) return;
+    let stream: MediaStream | null = null;
+    if (focusedPeer === 'local') stream = localStreamRef.current;
+    else if (focusedPeer) stream = peersRef.current.get(focusedPeer)?.stream || null;
+    if (!stream) stream = localStreamRef.current;
+    ref.srcObject = stream;
+  }, [focusedPeer, localStream, peers]);
 
   useEffect(() => {
     async function detectDevices() {
@@ -307,120 +320,102 @@ export default function VideoRoom({ workOrderId, onScreenshot, screenshotMode, c
     }
   }, [screenSharing, replaceOrAddVideoTrack]);
 
-  // Capture screenshot from any stream - works in PiP, focused, or unfocused
-  const captureFromStream = useCallback((stream: MediaStream) => {
-    const tmpVideo = document.createElement('video');
-    tmpVideo.srcObject = stream;
-    tmpVideo.muted = true;
-    tmpVideo.playsInline = true;
-    tmpVideo.style.position = 'fixed';
-    tmpVideo.style.opacity = '0';
-    tmpVideo.style.pointerEvents = 'none';
-    document.body.appendChild(tmpVideo);
-
-    const doCapture = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = tmpVideo.videoWidth || 1920;
-      canvas.height = tmpVideo.videoHeight || 1080;
-      canvas.getContext('2d')?.drawImage(tmpVideo, 0, 0);
-      onScreenshot?.(canvas.toDataURL('image/jpeg', 0.85));
-      tmpVideo.pause();
-      tmpVideo.srcObject = null;
-      tmpVideo.remove();
-    };
-
-    if (tmpVideo.readyState >= 2) {
-      requestAnimationFrame(doCapture);
-    } else {
-      tmpVideo.onloadeddata = () => requestAnimationFrame(doCapture);
+  // Capture a frame from an already-playing video element (reliable - no temp elements needed).
+  // Scales down to MAX_CAPTURE_WIDTH to keep toDataURL fast and payloads small.
+  const captureFromVideoElement = useCallback((videoEl: HTMLVideoElement, callback?: (dataUrl: string) => void) => {
+    if (!videoEl.videoWidth) return;
+    const MAX_W = 1280;
+    const scale = videoEl.videoWidth > MAX_W ? MAX_W / videoEl.videoWidth : 1;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(videoEl.videoWidth * scale);
+    canvas.height = Math.round(videoEl.videoHeight * scale);
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
     }
-    tmpVideo.play().catch(() => {
-      // Fallback: capture from hidden ref
-      if (captureVideoRef.current?.videoWidth) {
-        const c = document.createElement('canvas');
-        c.width = captureVideoRef.current.videoWidth;
-        c.height = captureVideoRef.current.videoHeight;
-        c.getContext('2d')?.drawImage(captureVideoRef.current, 0, 0);
-        onScreenshot?.(c.toDataURL('image/jpeg', 0.85));
-      }
-      tmpVideo.remove();
-    });
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+    if (callback) callback(dataUrl);
+    else onScreenshot?.(dataUrl);
   }, [onScreenshot]);
+
+  // Find the best video element for a given target (peer socket id or 'local')
+  const getVideoElement = useCallback((target: string | null): HTMLVideoElement | null => {
+    // Primary capture ref tracks the focused stream (local or remote) and is always decoding
+    if (primaryCaptureRef.current?.videoWidth) return primaryCaptureRef.current;
+    if (target === 'local') {
+      return focusedVideoRef.current?.videoWidth ? focusedVideoRef.current
+        : localGridVideoRef.current?.videoWidth ? localGridVideoRef.current
+        : captureVideoRef.current?.videoWidth ? captureVideoRef.current
+        : null;
+    }
+    if (target) {
+      const peerEl = document.getElementById(`peer-video-${target}`) as HTMLVideoElement | null;
+      if (peerEl?.videoWidth) return peerEl;
+    }
+    // Fallback: any local video element that has frames
+    return localGridVideoRef.current?.videoWidth ? localGridVideoRef.current
+      : captureVideoRef.current?.videoWidth ? captureVideoRef.current
+      : null;
+  }, []);
 
   // Screenshot from focused peer, or fall back to local
   const takeScreenshot = useCallback(() => {
-    let stream: MediaStream | null | undefined = null;
-    if (focusedPeer === 'local') stream = localStreamRef.current;
-    else if (focusedPeer) stream = peersRef.current.get(focusedPeer)?.stream;
-    // Fallback: if nothing focused, grab local stream (useful in PiP)
-    if (!stream) stream = localStreamRef.current;
-    if (stream) captureFromStream(stream);
-  }, [focusedPeer, captureFromStream]);
+    const target = focusedPeer || 'local';
+    const el = getVideoElement(target);
+    if (el) captureFromVideoElement(el);
+  }, [focusedPeer, getVideoElement, captureFromVideoElement]);
 
   // Screenshot a specific stream by peer socket ID (for PiP mode picker)
   const screenshotPeer = useCallback((peerSocketId: string) => {
-    const stream = peersRef.current.get(peerSocketId)?.stream;
-    if (stream) captureFromStream(stream);
-  }, [captureFromStream]);
+    const el = getVideoElement(peerSocketId);
+    if (el) captureFromVideoElement(el);
+  }, [getVideoElement, captureFromVideoElement]);
 
   const screenshotLocal = useCallback(() => {
-    if (localStreamRef.current) captureFromStream(localStreamRef.current);
-  }, [captureFromStream]);
+    const el = getVideoElement('local');
+    if (el) captureFromVideoElement(el);
+  }, [getVideoElement, captureFromVideoElement]);
 
   // Sync focused peer to global store so form buttons can check
   useEffect(() => {
     setStoreFocusedPeer(focusedPeer);
   }, [focusedPeer, setStoreFocusedPeer]);
 
-  // Expose capture function to global store so form can trigger directly
+  // Expose capture function to global store so form can trigger it directly.
+  // Captures from the focused feed (or local fallback) using existing DOM video elements.
   useEffect(() => {
     if (isJoined) {
       setCaptureFunction(() => {
-        // Grab the focused stream
-        let stream: MediaStream | null | undefined = null;
-        const fp = focusedPeer;
-        if (fp === 'local') stream = localStreamRef.current;
-        else if (fp) stream = peersRef.current.get(fp)?.stream;
-        if (!stream) stream = localStreamRef.current;
-        if (!stream) return null;
+        const fp = useCallStore.getState().focusedPeerId;
+        const target = fp || 'local';
+        const el = getVideoElement(target);
+        if (!el) return null;
 
-        // Capture frame from stream
-        const tmpVideo = document.createElement('video');
-        tmpVideo.srcObject = stream;
-        tmpVideo.muted = true;
-        tmpVideo.playsInline = true;
-        tmpVideo.style.position = 'fixed';
-        tmpVideo.style.opacity = '0';
-        tmpVideo.style.pointerEvents = 'none';
-        document.body.appendChild(tmpVideo);
+        const MAX_W = 1280;
+        const scale = el.videoWidth > MAX_W ? MAX_W / el.videoWidth : 1;
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(el.videoWidth * scale);
+        canvas.height = Math.round(el.videoHeight * scale);
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(el, 0, 0, canvas.width, canvas.height);
+        }
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
 
-        const doCapture = () => {
-          const canvas = document.createElement('canvas');
-          canvas.width = tmpVideo.videoWidth || 1920;
-          canvas.height = tmpVideo.videoHeight || 1080;
-          canvas.getContext('2d')?.drawImage(tmpVideo, 0, 0);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-          tmpVideo.pause(); tmpVideo.srcObject = null; tmpVideo.remove();
-
-          const storeCallback = useCallStore.getState().screenshotCallback;
-          if (storeCallback) {
-            storeCallback(dataUrl);
-          } else {
-            onScreenshot?.(dataUrl);
-          }
-        };
-
-        if (tmpVideo.readyState >= 2) { requestAnimationFrame(doCapture); }
-        else { tmpVideo.onloadeddata = () => requestAnimationFrame(doCapture); }
-        tmpVideo.play().catch(() => { tmpVideo.remove(); });
-
+        const storeCallback = useCallStore.getState().screenshotCallback;
+        if (storeCallback) storeCallback(dataUrl);
+        else onScreenshot?.(dataUrl);
         return null;
       });
     } else {
       setCaptureFunction(null);
     }
     return () => setCaptureFunction(null);
-  }, [isJoined, focusedPeer, onScreenshot, setCaptureFunction]);
+  }, [isJoined, onScreenshot, setCaptureFunction, getVideoElement]);
 
   useEffect(() => {
     return () => {
@@ -481,7 +476,8 @@ export default function VideoRoom({ workOrderId, onScreenshot, screenshotMode, c
   if (pipActive) {
     return (
       <div className="rounded-lg border bg-slate-900 overflow-hidden">
-        <video ref={captureVideoRef} autoPlay playsInline muted className="hidden" />
+        <video ref={captureVideoRef} autoPlay playsInline muted style={{ position: 'fixed', width: 1, height: 1, opacity: 0, pointerEvents: 'none', zIndex: -1 }} />
+        <video ref={primaryCaptureRef} autoPlay playsInline muted style={{ position: 'fixed', width: 1, height: 1, opacity: 0, pointerEvents: 'none', zIndex: -1 }} />
         <div className="p-4">
           <div className="flex items-center gap-2 mb-3">
             <Video className="h-5 w-5 text-ocean" />
@@ -523,8 +519,9 @@ export default function VideoRoom({ workOrderId, onScreenshot, screenshotMode, c
   // ── In call: full UI ──
   return (
     <div className="rounded-lg border bg-slate-900 overflow-hidden">
-      {/* Hidden video for screenshot capture (always has local stream, even during PiP) */}
-      <video ref={captureVideoRef} autoPlay playsInline muted className="hidden" />
+      {/* Capture videos: captureVideoRef=local stream, primaryCaptureRef=focused/primary stream */}
+      <video ref={captureVideoRef} autoPlay playsInline muted style={{ position: 'fixed', width: 1, height: 1, opacity: 0, pointerEvents: 'none', zIndex: -1 }} />
+      <video ref={primaryCaptureRef} autoPlay playsInline muted style={{ position: 'fixed', width: 1, height: 1, opacity: 0, pointerEvents: 'none', zIndex: -1 }} />
 
       {/* Focused main video */}
       {focusedPeer && (

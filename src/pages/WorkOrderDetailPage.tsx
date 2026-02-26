@@ -319,7 +319,7 @@ function FormEntryCard({ entry, isActive, onToggle, collab, workOrderId, workOrd
   workOrderId: string;
   workOrderTitle: string;
 }) {
-  const { isInCall, activeWorkOrderId, focusedPeerId, startCall, openPanel, setScreenshotTarget } = useCallStore();
+  const { isInCall, activeWorkOrderId, startCall } = useCallStore();
   const comp = entry.vesselComponent;
   const liveStatus = collab.liveStatuses.get(entry.id) || entry.status;
   const isCompleted = liveStatus === 'COMPLETED';
@@ -335,23 +335,41 @@ function FormEntryCard({ entry, isActive, onToggle, collab, workOrderId, workOrd
   const actionRequired = getValue('actionRequired', entry.actionRequired) || false;
 
   const liveAtt = collab.liveAttachments.get(entry.id);
-  const attachmentsJson = liveAtt ?? entry.attachments ?? '[]';
-  const allPhotos: string[] = (() => { try { return JSON.parse(attachmentsJson).filter((a: any) => typeof a === 'string'); } catch { return []; } })();
+  const rawAttachments = liveAtt ?? entry.attachments ?? '[]';
+  const allPhotos: string[] = (() => {
+    try {
+      const arr = typeof rawAttachments === 'string' ? JSON.parse(rawAttachments) : (Array.isArray(rawAttachments) ? rawAttachments : []);
+      return (arr || []).filter((a: any) => typeof a === 'string');
+    } catch { return []; }
+  })();
 
   const onFieldChange = (field: string, value: any) => collab.updateField(entry.id, field, value);
   const onFocus = (field: string) => collab.lockField(entry.id, field);
   const onBlur = (field: string) => collab.unlockField(entry.id, field);
 
+  const [capturing, setCapturing] = useState(false);
+
   const handleCapture = () => {
     const callRunning = isInCall && activeWorkOrderId === workOrderId;
     if (!callRunning) { startCall(workOrderId, workOrderTitle); return; }
-    if (!focusedPeerId) { openPanel(); return; }
-    setScreenshotTarget(entry.id, (dataUrl: string) => {
+
+    setCapturing(true);
+
+    // Set callback first, then immediately invoke capture.
+    // Zustand getState() is synchronous so the callback is available instantly.
+    useCallStore.getState().setScreenshotTarget(entry.id, (dataUrl: string) => {
       collab.addScreenshot(entry.id, dataUrl);
-      setScreenshotTarget(null, null);
+      useCallStore.getState().setScreenshotTarget(null, null);
+      setCapturing(false);
     });
-    const store = useCallStore.getState();
-    if (store.captureFunction) store.captureFunction();
+
+    const fn = useCallStore.getState().captureFunction;
+    if (fn) {
+      fn();
+    } else {
+      useCallStore.getState().setScreenshotTarget(null, null);
+      setCapturing(false);
+    }
   };
 
   // Helper to render field lock indicator (not a component - just returns JSX to avoid remount)
@@ -479,8 +497,10 @@ function FormEntryCard({ entry, isActive, onToggle, collab, workOrderId, workOrd
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label className="text-xs flex items-center gap-1"><Image className="h-3 w-3" /> Photo Evidence ({allPhotos.length})</Label>
-              <Button variant="outline" size="sm" onClick={handleCapture} className="text-ocean border-ocean/30 hover:bg-ocean/10">
-                <Camera className="h-3 w-3 mr-1" /> Capture Screenshot
+              <Button variant="outline" size="sm" onClick={handleCapture} disabled={capturing} className="text-ocean border-ocean/30 hover:bg-ocean/10">
+                {capturing
+                  ? <><span className="h-3 w-3 mr-1 animate-spin rounded-full border-2 border-ocean border-t-transparent" /> Capturing...</>
+                  : <><Camera className="h-3 w-3 mr-1" /> Capture</>}
               </Button>
             </div>
             {allPhotos.length > 0 && (

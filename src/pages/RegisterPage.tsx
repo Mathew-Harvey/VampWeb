@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useRegister } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,10 +8,12 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Anchor, Eye, EyeOff } from 'lucide-react';
 
 export default function RegisterPage() {
+  const [searchParams] = useSearchParams();
+  const initialEmail = useMemo(() => searchParams.get('email') || '', [searchParams]);
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
-    email: '',
+    email: initialEmail,
     password: '',
     confirmPassword: '',
   });
