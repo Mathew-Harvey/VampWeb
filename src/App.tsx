@@ -1,5 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect, useRef } from 'react';
 import { useAuthStore } from './stores/auth.store';
+import { authApi } from './api/auth';
 import MainLayout from './components/layout/MainLayout';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -30,6 +32,23 @@ function GuestRoute({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  const { isAuthenticated, setToken } = useAuthStore();
+  const refreshAttemptedRef = useRef(false);
+
+  // One-time startup refresh to mint/renew auth cookies for existing sessions.
+  useEffect(() => {
+    if (!isAuthenticated || refreshAttemptedRef.current) return;
+    refreshAttemptedRef.current = true;
+    authApi.refresh()
+      .then((res) => {
+        const token = res?.data?.data?.accessToken;
+        if (token) setToken(token);
+      })
+      .catch(() => {
+        // Ignore - app still has normal 401->refresh fallback.
+      });
+  }, [isAuthenticated, setToken]);
+
   return (
     <Routes>
       {/* Auth routes - redirect to dashboard if already logged in */}
