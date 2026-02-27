@@ -89,7 +89,7 @@ export function useFormCollaboration(workOrderId: string): FormCollaboration {
 
   const [liveStatuses, setLiveStatuses] = useState<Map<string, string>>(new Map());
   const socketRef = useRef<Socket | null>(null);
-  const debounceTimers = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  const debounceTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   useEffect(() => {
     const s = io(getSocketServerOrigin(), {

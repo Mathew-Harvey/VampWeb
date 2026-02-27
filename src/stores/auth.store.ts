@@ -64,8 +64,8 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'vamp-auth',
-      onRehydrate: () => {
-        return (state) => {
+      onRehydrateStorage: () => {
+        return (state: AuthState | undefined) => {
           if (state?.accessToken && isTokenExpired(state.accessToken)) {
             state.accessToken = null;
             state.user = null;
