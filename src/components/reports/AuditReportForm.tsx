@@ -233,7 +233,12 @@ export default function AuditReportForm({ onBack }: { onBack: () => void }) {
     mutationFn: () => reportsApi.generateAudit(form as AuditReportPayload),
     onSuccess: (res) => {
       const payload = res?.data?.data;
-      if (payload) {
+      if (payload?.html) {
+        const blob = new Blob([payload.html], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+      } else if (payload) {
         const mimeType = form.exportFormat === 'CSV' ? 'text/csv' : 'application/json';
         const content = form.exportFormat === 'CSV' && typeof payload === 'string'
           ? payload
