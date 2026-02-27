@@ -164,12 +164,12 @@ export default function ReportsPage() {
               Cancel
             </Button>
             {reportType === 'inspection' && (
-              <Button variant="outline" onClick={handleOpenContext} disabled={!canConfirm || isGenerating}>
+              <Button variant="outline" onClick={handleOpenContext} disabled={!canConfirm}>
                 Open context (debug)
               </Button>
             )}
-            <Button onClick={handleConfirmGenerate} disabled={!canConfirm || isGenerating}>
-              {isGenerating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button onClick={handleConfirmGenerate} disabled={!canConfirm || (reportType === 'work-order' && isGenerating)}>
+              {reportType === 'work-order' && isGenerating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {reportType === 'inspection' ? 'Open viewer' : 'Generate'}
             </Button>
           </DialogFooter>

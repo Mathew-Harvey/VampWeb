@@ -37,7 +37,7 @@ export default function VesselDetailPage() {
   const { data: vessel, isLoading } = useVessel(id!);
   const qc = useQueryClient();
   const [showAddComp, setShowAddComp] = useState(false);
-  const [newComp, setNewComp] = useState({ name: '', category: 'HULL', location: '', description: '' });
+  const [newComp, setNewComp] = useState({ name: '', category: 'HULL', location: '' });
 
   const { data: components } = useQuery({
     queryKey: ['vessel-components', id],
@@ -53,7 +53,7 @@ export default function VesselDetailPage() {
 
   const addComponent = useMutation({
     mutationFn: (data: any) => apiClient.post(`/vessels/${id}/components`, data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['vessel-components', id] }); setShowAddComp(false); setNewComp({ name: '', category: 'HULL', location: '', description: '' }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['vessel-components', id] }); setShowAddComp(false); setNewComp({ name: '', category: 'HULL', location: '' }); },
   });
 
   if (isLoading) return <div className="flex items-center justify-center py-20 text-muted-foreground">Loading vessel...</div>;

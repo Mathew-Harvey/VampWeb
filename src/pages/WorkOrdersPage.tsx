@@ -4,7 +4,7 @@ import { useWorkOrders, useCreateWorkOrder } from '@/hooks/useWorkOrders';
 import { useVessels } from '@/hooks/useVessels';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Search, ClipboardList } from 'lucide-react';
 import { WORK_ORDER_TYPES, WORK_ORDER_STATUSES, WORK_ORDER_PRIORITIES } from '@/constants/work-order-status';
 import { formatDate } from '@/utils/formatters';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 
 const statusBadge: Record<string, 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning' | 'info'> = {
   DRAFT: 'secondary',
@@ -29,8 +30,9 @@ const statusBadge: Record<string, 'default' | 'secondary' | 'destructive' | 'out
 
 export default function WorkOrdersPage() {
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search);
   const [statusFilter, setStatusFilter] = useState('ALL');
-  const { data, isLoading } = useWorkOrders({ search, ...(statusFilter !== 'ALL' ? { status: statusFilter } : {}), limit: '50' });
+  const { data, isLoading } = useWorkOrders({ search: debouncedSearch, ...(statusFilter !== 'ALL' ? { status: statusFilter } : {}), limit: '50' });
   const { data: vesselsData } = useVessels({ limit: '100' });
   const createWO = useCreateWorkOrder();
   const [showCreate, setShowCreate] = useState(false);

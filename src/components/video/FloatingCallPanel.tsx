@@ -7,13 +7,11 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 export default function FloatingCallPanel() {
   const {
     activeWorkOrderId, activeWorkOrderTitle, isPanelOpen,
-    isInCall, endCall, closePanel, openPanel, screenshotCallback,
+    isInCall, endCall, openPanel, screenshotCallback,
   } = useCallStore();
 
   const [isMinimized, setIsMinimized] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [pipActive, setPipActive] = useState(false);
-
   // Arbitrary size via drag resize
   const [panelWidth, setPanelWidth] = useState(640);
   const [panelHeight, setPanelHeight] = useState(520);
@@ -93,7 +91,6 @@ export default function FloatingCallPanel() {
     try {
       if (document.pictureInPictureElement) {
         await document.exitPictureInPicture();
-        setPipActive(false);
         return;
       }
       const videos = panelRef.current?.querySelectorAll('video:not(.hidden)');
@@ -106,8 +103,6 @@ export default function FloatingCallPanel() {
       }
       if (!target) return;
       await target.requestPictureInPicture();
-      setPipActive(true);
-      target.addEventListener('leavepictureinpicture', () => setPipActive(false), { once: true });
     } catch (err) { console.error('PiP failed:', err); }
   }, []);
 

@@ -3,7 +3,6 @@ import { io, Socket } from 'socket.io-client';
 import { useAuthStore } from '@/stores/auth.store';
 import { useCallStore } from '@/stores/call.store';
 import { Button } from '@/components/ui/button';
-import { useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import {
   Video, VideoOff, Mic, MicOff, PhoneOff, Camera,
@@ -49,7 +48,7 @@ export default function VideoRoom({ workOrderId, onScreenshot, screenshotMode, c
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [screenSharing, setScreenSharing] = useState(false);
   const [focusedPeer, setFocusedPeer] = useState<string | null>(null);
-  const [audioOutputEnabled, setAudioOutputEnabled] = useState(false);
+  const [audioOutputEnabled, setAudioOutputEnabled] = useState(true);
   const [pipActive, setPipActive] = useState(false);
 
   // Separate refs for grid and focused local video so both can show simultaneously

@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { inspectionsApi } from '@/api/inspections';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,59 +8,90 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { FOULING_RATINGS } from '@/constants/fouling-ratings';
-import { formatDateTime } from '@/utils/formatters';
 import { useState } from 'react';
-import { Plus, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Plus, CheckCircle, AlertTriangle } from 'lucide-react';
 
 export default function InspectionPage() {
   const { id } = useParams<{ id: string }>();
   const qc = useQueryClient();
-  const { data: inspection, isLoading } = useQuery({
+  const { data: inspection, isLoading, error } = useQuery({
     queryKey: ['inspection', id],
     queryFn: () => inspectionsApi.getById(id!).then((r) => r.data.data),
   });
 
   const [finding, setFinding] = useState({ area: '', foulingRating: 0, foulingType: '', description: '', recommendation: '', coverage: 0 });
+  const [mutationError, setMutationError] = useState<string | null>(null);
 
   const addFinding = useMutation({
     mutationFn: () => inspectionsApi.addFinding(id!, finding),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['inspection', id] }); setFinding({ area: '', foulingRating: 0, foulingType: '', description: '', recommendation: '', coverage: 0 }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['inspection', id] });
+      setFinding({ area: '', foulingRating: 0, foulingType: '', description: '', recommendation: '', coverage: 0 });
+      setMutationError(null);
+    },
+    onError: (err: any) => setMutationError(err.message || 'Failed to add finding'),
   });
 
   const completeInspection = useMutation({
     mutationFn: () => inspectionsApi.complete(id!),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['inspection', id] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['inspection', id] });
+      setMutationError(null);
+    },
+    onError: (err: any) => setMutationError(err.message || 'Failed to complete inspection'),
   });
 
-  if (isLoading) return <div className="flex items-center justify-center py-20">Loading...</div>;
-  if (!inspection) return <div className="text-center py-20">Inspection not found</div>;
+  if (isLoading) return <div className="flex items-center justify-center py-20 text-muted-foreground">Loading inspection...</div>;
+  if (error) return (
+    <div className="text-center py-20">
+      <AlertTriangle className="mx-auto h-12 w-12 text-red-400 mb-3" />
+      <p className="text-red-600 mb-4">Failed to load inspection</p>
+      <Link to="/work-orders"><Button variant="outline"><ArrowLeft className="mr-2 h-4 w-4" /> Back to Work Orders</Button></Link>
+    </div>
+  );
+  if (!inspection) return (
+    <div className="text-center py-20 text-muted-foreground">
+      <p>Inspection not found</p>
+      <Link to="/work-orders" className="mt-4 inline-block"><Button variant="outline"><ArrowLeft className="mr-2 h-4 w-4" /> Back to Work Orders</Button></Link>
+    </div>
+  );
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">{inspection.type?.replace(/_/g, ' ')} Inspection</h1>
-          <p className="text-muted-foreground">{inspection.vessel?.name} &middot; {inspection.inspectorName}</p>
+        <div className="flex items-center gap-4">
+          <Link to="/work-orders"><Button variant="ghost" size="icon"><ArrowLeft className="h-5 w-5" /></Button></Link>
+          <div>
+            <h1 className="text-2xl font-bold">{inspection.type?.replace(/_/g, ' ')} Inspection</h1>
+            <p className="text-muted-foreground">{inspection.vessel?.name} &middot; {inspection.inspectorName}</p>
+          </div>
         </div>
         <div className="flex gap-2">
           <Badge variant="outline">{inspection.status}</Badge>
           {inspection.status === 'IN_PROGRESS' && (
-            <Button onClick={() => completeInspection.mutate()} variant="default">
-              <CheckCircle className="mr-2 h-4 w-4" /> Complete Inspection
+            <Button onClick={() => completeInspection.mutate()} disabled={completeInspection.isPending}>
+              {completeInspection.isPending ? 'Completing...' : <><CheckCircle className="mr-2 h-4 w-4" /> Complete Inspection</>}
             </Button>
           )}
         </div>
       </div>
+
+      {mutationError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />
+          <p className="text-sm text-red-700">{mutationError}</p>
+        </div>
+      )}
 
       {/* Environmental Conditions */}
       <Card>
         <CardHeader><CardTitle>Environmental Conditions</CardTitle></CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div><span className="text-muted-foreground">Water Temp</span><p>{inspection.waterTemp ? `${inspection.waterTemp}°C` : '—'}</p></div>
-            <div><span className="text-muted-foreground">Visibility</span><p>{inspection.waterVisibility ? `${inspection.waterVisibility}m` : '—'}</p></div>
-            <div><span className="text-muted-foreground">Weather</span><p>{inspection.weatherConditions || '—'}</p></div>
-            <div><span className="text-muted-foreground">Sea State</span><p>{inspection.seaState || '—'}</p></div>
+            <div><span className="text-muted-foreground">Water Temp</span><p>{inspection.waterTemp ? `${inspection.waterTemp}\u00B0C` : '\u2014'}</p></div>
+            <div><span className="text-muted-foreground">Visibility</span><p>{inspection.waterVisibility ? `${inspection.waterVisibility}m` : '\u2014'}</p></div>
+            <div><span className="text-muted-foreground">Weather</span><p>{inspection.weatherConditions || '\u2014'}</p></div>
+            <div><span className="text-muted-foreground">Sea State</span><p>{inspection.seaState || '\u2014'}</p></div>
           </div>
         </CardContent>
       </Card>
@@ -84,6 +115,9 @@ export default function InspectionPage() {
               {f.recommendation && <p className="text-sm mt-1"><strong>Recommendation:</strong> {f.recommendation}</p>}
             </div>
           ))}
+          {(!inspection.findings || inspection.findings.length === 0) && (
+            <p className="text-sm text-muted-foreground text-center py-4">No findings recorded yet</p>
+          )}
         </CardContent>
       </Card>
 

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useVessels, useCreateVessel } from '@/hooks/useVessels';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Search, Ship } from 'lucide-react';
 import { VESSEL_TYPES } from '@/constants/vessel-types';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 
 const complianceBadge: Record<string, 'success' | 'destructive' | 'warning' | 'info'> = {
   COMPLIANT: 'success',
@@ -21,8 +22,9 @@ const complianceBadge: Record<string, 'success' | 'destructive' | 'warning' | 'i
 
 export default function VesselsPage() {
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search);
   const [statusFilter, setStatusFilter] = useState('ALL');
-  const { data, isLoading } = useVessels({ search, ...(statusFilter !== 'ALL' ? { status: statusFilter } : {}), limit: '50' });
+  const { data, isLoading } = useVessels({ search: debouncedSearch, ...(statusFilter !== 'ALL' ? { status: statusFilter } : {}), limit: '50' });
   const createVessel = useCreateVessel();
   const [showCreate, setShowCreate] = useState(false);
   const [newVessel, setNewVessel] = useState({ name: '', vesselType: 'TUG' });

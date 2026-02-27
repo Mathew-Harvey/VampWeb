@@ -16,12 +16,12 @@ import { useFormCollaboration, type FormCollaboration } from '@/hooks/useFormCol
 import InviteDialog from '@/components/invite/InviteDialog';
 import {
   ArrowLeft, User, MessageSquare, Video, FileText, ClipboardCheck,
-  CheckCircle, AlertTriangle, Camera, X, Image, PhoneCall, UserPlus, Building2, Lock, Users,
+  CheckCircle, AlertTriangle, Camera, X, Image, PhoneCall, UserPlus, Lock, Users,
 } from 'lucide-react';
 import { formatDate, formatDateTime, formatRelative } from '@/utils/formatters';
 import { WORK_ORDER_STATUSES, WORK_ORDER_TYPES } from '@/constants/work-order-status';
 import { FOULING_RATINGS } from '@/constants/fouling-ratings';
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useMediaUpload } from '@/hooks/useMediaUpload';
 import ReportSettingsPanel from '@/components/reports/ReportSettingsPanel';
 
@@ -178,7 +178,9 @@ export default function WorkOrderDetailPage() {
           {wo.status === 'PENDING_APPROVAL' && <Button onClick={() => changeStatus.mutate({ id: id!, status: 'APPROVED' })}>Approve</Button>}
           {wo.status === 'APPROVED' && <Button onClick={() => changeStatus.mutate({ id: id!, status: 'IN_PROGRESS' })}>Start Work</Button>}
           {wo.status === 'IN_PROGRESS' && <Button onClick={() => changeStatus.mutate({ id: id!, status: 'AWAITING_REVIEW' })}>Submit for Review</Button>}
+          {wo.status === 'AWAITING_REVIEW' && <Button onClick={() => changeStatus.mutate({ id: id!, status: 'UNDER_REVIEW' })}>Begin Review</Button>}
           {wo.status === 'UNDER_REVIEW' && <Button onClick={() => changeStatus.mutate({ id: id!, status: 'COMPLETED' })}>Complete</Button>}
+          {wo.status === 'UNDER_REVIEW' && <Button variant="outline" onClick={() => changeStatus.mutate({ id: id!, status: 'IN_PROGRESS' })}>Return to In Progress</Button>}
         </div>
       </div>
 

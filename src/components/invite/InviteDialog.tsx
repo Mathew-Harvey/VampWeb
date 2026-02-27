@@ -4,7 +4,6 @@ import apiClient from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { UserPlus, Mail, Shield, Edit, Eye, Trash2, CheckCircle, AlertTriangle, XCircle, Copy, ExternalLink } from 'lucide-react';
