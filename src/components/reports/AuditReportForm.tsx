@@ -210,7 +210,7 @@ export default function AuditReportForm({ onBack }: { onBack: () => void }) {
   };
 
   const toggleEventGroup = (group: string) => {
-    const groupEvents = EVENT_TYPES.filter((e) => e.group === group).map((e) => e.id);
+    const groupEvents: string[] = EVENT_TYPES.filter((e) => e.group === group).map((e) => e.id);
     const allSelected = groupEvents.every((id) => form.selectedEventTypes.includes(id));
     if (allSelected) {
       setForm((prev) => ({
