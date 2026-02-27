@@ -62,7 +62,3 @@ export function formatRelative(date: string | Date): string {
   const diffYears = Math.round(diffMonths / 12);
   return relativeFormatter.format(diffYears, 'year');
 }
-
-export function cn(...classes: (string | undefined | false | null)[]): string {
-  return classes.filter(Boolean).join(' ');
-}

@@ -8,7 +8,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { FOULING_RATINGS } from '@/constants/fouling-ratings';
-import { formatDateTime } from '@/utils/formatters';
 import { useState } from 'react';
 import { Plus, CheckCircle } from 'lucide-react';
 

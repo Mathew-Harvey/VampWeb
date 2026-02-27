@@ -3,12 +3,10 @@ import {
   LayoutDashboard,
   Ship,
   ClipboardList,
-  Search,
   FileText,
   Shield,
   Users,
   Settings,
-  Bell,
   Anchor,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
