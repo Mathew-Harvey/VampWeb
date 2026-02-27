@@ -50,7 +50,8 @@ function parseAttachmentItems(rawAttachments: unknown): AttachmentLike[] {
 
 function toImageSrc(raw: string): string {
   if (!raw) return '';
-  if (/^https?:\/\//i.test(raw) || /^data:/i.test(raw) || /^blob:/i.test(raw)) return raw;
+  if (/^data:/i.test(raw) || /^blob:/i.test(raw)) return raw;
+
   const apiBase = (import.meta.env.VITE_API_URL as string | undefined)?.trim() || 'http://localhost:3001';
   const origin = (() => {
     try {
@@ -59,6 +60,20 @@ function toImageSrc(raw: string): string {
       return apiBase.replace(/\/+$/, '');
     }
   })();
+
+  // Rewrite absolute URLs that point to a localhost/dev origin (legacy data)
+  if (/^https?:\/\//i.test(raw)) {
+    try {
+      const parsed = new URL(raw);
+      if (/^(localhost|127\.0\.0\.1)$/i.test(parsed.hostname) && parsed.origin !== origin) {
+        return `${origin}${parsed.pathname}${parsed.search}${parsed.hash}`;
+      }
+    } catch {
+      // not a valid URL, return as-is
+    }
+    return raw;
+  }
+
   return `${origin.replace(/\/+$/, '')}/${raw.replace(/^\/+/, '')}`;
 }
 
