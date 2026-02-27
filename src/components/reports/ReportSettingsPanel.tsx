@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { reportsApi, type ReportConfigPayload } from '@/api/reports';
+import { reportsApi, type ReportConfigPayload, type SignoffEntry } from '@/api/reports';
 import { useMediaUpload } from '@/hooks/useMediaUpload';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 
 type AssetField = 'coverImage' | 'clientLogo' | 'generalArrangementImage';
-type SignoffRole = 'supervisor' | 'inspector';
+type SignoffRole = 'supervisor' | 'inspector' | 'repair';
+
+const EMPTY_SIGNOFF: SignoffEntry = { name: '', declaration: '', signature: '', mode: 'dark', date: '' };
 
 const DEFAULT_CONFIG: ReportConfigPayload = {
   title: '',
@@ -26,12 +28,17 @@ const DEFAULT_CONFIG: ReportConfigPayload = {
   togglePhotoName: false,
   supervisorName: '',
   inspectorName: '',
+  confidential: '',
+  toggleRovUse: false,
+  rovDetails: '',
+  repairAgentName: '',
   coverImage: {},
   clientLogo: {},
   generalArrangementImage: {},
   signoff: {
-    supervisor: { name: '', declaration: '', signature: '', mode: 'dark', date: '' },
-    inspector: { name: '', declaration: '', signature: '', mode: 'dark', date: '' },
+    supervisor: { ...EMPTY_SIGNOFF },
+    inspector: { ...EMPTY_SIGNOFF },
+    repair: { ...EMPTY_SIGNOFF },
   },
 };
 
@@ -39,6 +46,7 @@ export default function ReportSettingsPanel({ workOrderId }: { workOrderId: stri
   const [config, setConfig] = useState<ReportConfigPayload>(DEFAULT_CONFIG);
   const [initialized, setInitialized] = useState(false);
   const [uploadingField, setUploadingField] = useState<AssetField | null>(null);
+  const [saveMsg, setSaveMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const mediaUpload = useMediaUpload();
 
   const configQuery = useQuery({
@@ -53,16 +61,9 @@ export default function ReportSettingsPanel({ workOrderId }: { workOrderId: stri
       ...DEFAULT_CONFIG,
       ...configQuery.data,
       signoff: {
-        ...DEFAULT_CONFIG.signoff,
-        ...(configQuery.data.signoff || {}),
-        supervisor: {
-          ...DEFAULT_CONFIG.signoff?.supervisor,
-          ...(configQuery.data.signoff?.supervisor || {}),
-        },
-        inspector: {
-          ...DEFAULT_CONFIG.signoff?.inspector,
-          ...(configQuery.data.signoff?.inspector || {}),
-        },
+        supervisor: { ...EMPTY_SIGNOFF, ...(configQuery.data.signoff?.supervisor || {}) },
+        inspector: { ...EMPTY_SIGNOFF, ...(configQuery.data.signoff?.inspector || {}) },
+        repair: { ...EMPTY_SIGNOFF, ...(configQuery.data.signoff?.repair || {}) },
       },
     });
     setInitialized(true);
@@ -72,14 +73,15 @@ export default function ReportSettingsPanel({ workOrderId }: { workOrderId: stri
     mutationFn: () => reportsApi.updateConfig(workOrderId, config),
     onSuccess: (res) => {
       setConfig((prev) => ({ ...prev, ...(res.data.data || {}) }));
+      setSaveMsg({ type: 'success', text: 'Report settings saved' });
+    },
+    onError: (err: any) => {
+      setSaveMsg({ type: 'error', text: err?.response?.data?.error?.message || 'Failed to save config' });
     },
   });
 
   const setAssetMediaId = (field: AssetField, mediaId: string) => {
-    setConfig((prev) => ({
-      ...prev,
-      [field]: mediaId ? { mediaId } : {},
-    }));
+    setConfig((prev) => ({ ...prev, [field]: mediaId ? { mediaId } : {} }));
   };
 
   const uploadAsset = async (field: AssetField, file: File) => {
@@ -92,15 +94,12 @@ export default function ReportSettingsPanel({ workOrderId }: { workOrderId: stri
     }
   };
 
-  const updateSignoff = (role: SignoffRole, patch: Partial<NonNullable<NonNullable<ReportConfigPayload['signoff']>[SignoffRole]>>) => {
+  const updateSignoff = (role: SignoffRole, patch: Partial<SignoffEntry>) => {
     setConfig((prev) => ({
       ...prev,
       signoff: {
         ...(prev.signoff || {}),
-        [role]: {
-          ...(prev.signoff?.[role] || {}),
-          ...patch,
-        },
+        [role]: { ...(prev.signoff?.[role] || {}), ...patch },
       },
     }));
   };
@@ -119,81 +118,130 @@ export default function ReportSettingsPanel({ workOrderId }: { workOrderId: stri
           <Button type="button" size="sm" onClick={openViewer}>Open Viewer</Button>
         </div>
       </CardHeader>
-      <CardContent className="space-y-5">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <TextField label="Report title" value={config.title || ''} onChange={(v) => setConfig((p) => ({ ...p, title: v }))} />
-          <TextField label="Work instruction" value={config.workInstruction || ''} onChange={(v) => setConfig((p) => ({ ...p, workInstruction: v }))} />
-          <TextField label="Visibility" value={config.visibility || ''} onChange={(v) => setConfig((p) => ({ ...p, visibility: v }))} />
-          <TextField label="Client details" value={config.clientDetails || ''} onChange={(v) => setConfig((p) => ({ ...p, clientDetails: v }))} />
-          <TextField label="Buyer name" value={config.buyerName || ''} onChange={(v) => setConfig((p) => ({ ...p, buyerName: v }))} />
-          <TextField label="Reviewer name" value={config.reviewerName || ''} onChange={(v) => setConfig((p) => ({ ...p, reviewerName: v }))} />
-          <TextField label="Berth/anchorage location" value={config.berthAnchorageLocation || ''} onChange={(v) => setConfig((p) => ({ ...p, berthAnchorageLocation: v }))} />
-          <TextField label="Supervisor name" value={config.supervisorName || ''} onChange={(v) => setConfig((p) => ({ ...p, supervisorName: v }))} />
-          <TextField label="Inspector name" value={config.inspectorName || ''} onChange={(v) => setConfig((p) => ({ ...p, inspectorName: v }))} />
-          <div className="flex items-center gap-2 pt-6">
+      <CardContent className="space-y-6">
+        {/* Section: Basic Details */}
+        <fieldset className="space-y-3">
+          <legend className="text-sm font-semibold text-slate-700 mb-2">Basic Details</legend>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <TextField label="Report title" value={config.title || ''} onChange={(v) => setConfig((p) => ({ ...p, title: v }))} />
+            <TextField label="Work instruction" value={config.workInstruction || ''} onChange={(v) => setConfig((p) => ({ ...p, workInstruction: v }))} />
+            <TextField label="Client details" value={config.clientDetails || ''} onChange={(v) => setConfig((p) => ({ ...p, clientDetails: v }))} />
+            <TextField label="Buyer / Client rep name" value={config.buyerName || ''} onChange={(v) => setConfig((p) => ({ ...p, buyerName: v }))} />
+            <TextField label="Reviewer name" value={config.reviewerName || ''} onChange={(v) => setConfig((p) => ({ ...p, reviewerName: v }))} />
+            <TextField label="Visibility" value={config.visibility || ''} onChange={(v) => setConfig((p) => ({ ...p, visibility: v }))} />
+            <TextField label="Berth / anchorage location" value={config.berthAnchorageLocation || ''} onChange={(v) => setConfig((p) => ({ ...p, berthAnchorageLocation: v }))} />
+            <TextField label="Confidential marking" value={config.confidential || ''} onChange={(v) => setConfig((p) => ({ ...p, confidential: v }))} placeholder="e.g. CONFIDENTIAL (shown in report header)" />
+          </div>
+        </fieldset>
+
+        {/* Section: Inspection Team */}
+        <fieldset className="space-y-3">
+          <legend className="text-sm font-semibold text-slate-700 mb-2">Inspection Team</legend>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <TextField label="Supervisor name" value={config.supervisorName || ''} onChange={(v) => setConfig((p) => ({ ...p, supervisorName: v }))} />
+            <TextField label="Inspector name" value={config.inspectorName || ''} onChange={(v) => setConfig((p) => ({ ...p, inspectorName: v }))} />
+            <TextField label="Repair agent name" value={config.repairAgentName || ''} onChange={(v) => setConfig((p) => ({ ...p, repairAgentName: v }))} placeholder="Leave empty if no repair agent" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="flex items-center gap-2 pt-2">
+              <input
+                id="toggleRovUse"
+                type="checkbox"
+                checked={Boolean(config.toggleRovUse)}
+                onChange={(e) => setConfig((p) => ({ ...p, toggleRovUse: e.target.checked }))}
+              />
+              <Label htmlFor="toggleRovUse">ROV used during inspection</Label>
+            </div>
+            {config.toggleRovUse && (
+              <TextField label="ROV details" value={config.rovDetails || ''} onChange={(v) => setConfig((p) => ({ ...p, rovDetails: v }))} placeholder="e.g. BlueROV2 Heavy" />
+            )}
+          </div>
+          <div className="flex items-center gap-2">
             <input
               id="togglePhotoName"
               type="checkbox"
               checked={Boolean(config.togglePhotoName)}
               onChange={(e) => setConfig((p) => ({ ...p, togglePhotoName: e.target.checked }))}
             />
-            <Label htmlFor="togglePhotoName">Show photo names in report</Label>
+            <Label htmlFor="togglePhotoName">Hide photo names in report</Label>
           </div>
-        </div>
+        </fieldset>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <LongField label="Summary (HTML supported)" value={config.summary || ''} onChange={(v) => setConfig((p) => ({ ...p, summary: v }))} />
-          <LongField label="Overview (HTML supported)" value={config.overview || ''} onChange={(v) => setConfig((p) => ({ ...p, overview: v }))} />
-          <LongField label="Methodology (HTML supported)" value={config.methodology || ''} onChange={(v) => setConfig((p) => ({ ...p, methodology: v }))} />
-          <LongField label="Recommendations (HTML supported)" value={config.recommendations || ''} onChange={(v) => setConfig((p) => ({ ...p, recommendations: v }))} />
-        </div>
+        {/* Section: Report Content (HTML) */}
+        <fieldset className="space-y-3">
+          <legend className="text-sm font-semibold text-slate-700 mb-2">Report Content</legend>
+          <p className="text-xs text-muted-foreground">These fields support HTML. Leave empty to omit the section from the report.</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <LongField label="Executive Summary" value={config.summary || ''} onChange={(v) => setConfig((p) => ({ ...p, summary: v }))} />
+            <LongField label="Overview" value={config.overview || ''} onChange={(v) => setConfig((p) => ({ ...p, overview: v }))} />
+            <LongField label="Methodology" value={config.methodology || ''} onChange={(v) => setConfig((p) => ({ ...p, methodology: v }))} />
+            <LongField label="Recommendations" value={config.recommendations || ''} onChange={(v) => setConfig((p) => ({ ...p, recommendations: v }))} />
+          </div>
+        </fieldset>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <AssetPicker
-            label="Cover image"
-            mediaId={(config.coverImage as any)?.mediaId || ''}
-            uploading={uploadingField === 'coverImage'}
-            onMediaIdChange={(id) => setAssetMediaId('coverImage', id)}
-            onUpload={(file) => uploadAsset('coverImage', file)}
-          />
-          <AssetPicker
-            label="Client logo"
-            mediaId={(config.clientLogo as any)?.mediaId || ''}
-            uploading={uploadingField === 'clientLogo'}
-            onMediaIdChange={(id) => setAssetMediaId('clientLogo', id)}
-            onUpload={(file) => uploadAsset('clientLogo', file)}
-          />
-          <AssetPicker
-            label="General arrangement image"
-            mediaId={(config.generalArrangementImage as any)?.mediaId || ''}
-            uploading={uploadingField === 'generalArrangementImage'}
-            onMediaIdChange={(id) => setAssetMediaId('generalArrangementImage', id)}
-            onUpload={(file) => uploadAsset('generalArrangementImage', file)}
-          />
-        </div>
+        {/* Section: Images */}
+        <fieldset className="space-y-3">
+          <legend className="text-sm font-semibold text-slate-700 mb-2">Images</legend>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <AssetPicker
+              label="Cover image"
+              mediaId={(config.coverImage as any)?.mediaId || ''}
+              uploading={uploadingField === 'coverImage'}
+              onMediaIdChange={(id) => setAssetMediaId('coverImage', id)}
+              onUpload={(file) => uploadAsset('coverImage', file)}
+            />
+            <AssetPicker
+              label="Client logo"
+              mediaId={(config.clientLogo as any)?.mediaId || ''}
+              uploading={uploadingField === 'clientLogo'}
+              onMediaIdChange={(id) => setAssetMediaId('clientLogo', id)}
+              onUpload={(file) => uploadAsset('clientLogo', file)}
+            />
+            <AssetPicker
+              label="General arrangement image"
+              mediaId={(config.generalArrangementImage as any)?.mediaId || ''}
+              uploading={uploadingField === 'generalArrangementImage'}
+              onMediaIdChange={(id) => setAssetMediaId('generalArrangementImage', id)}
+              onUpload={(file) => uploadAsset('generalArrangementImage', file)}
+            />
+          </div>
+        </fieldset>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <SignoffEditor
-            title="Supervisor signoff"
-            value={config.signoff?.supervisor || {}}
-            onChange={(patch) => updateSignoff('supervisor', patch)}
-          />
-          <SignoffEditor
-            title="Inspector signoff"
-            value={config.signoff?.inspector || {}}
-            onChange={(patch) => updateSignoff('inspector', patch)}
-          />
-        </div>
+        {/* Section: Signoffs */}
+        <fieldset className="space-y-3">
+          <legend className="text-sm font-semibold text-slate-700 mb-2">Signoffs</legend>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+            <SignoffEditor
+              title="Supervisor signoff"
+              value={config.signoff?.supervisor || {}}
+              onChange={(patch) => updateSignoff('supervisor', patch)}
+            />
+            <SignoffEditor
+              title="Inspector / IMS signoff"
+              value={config.signoff?.inspector || {}}
+              onChange={(patch) => updateSignoff('inspector', patch)}
+            />
+            <SignoffEditor
+              title="Repair agent signoff"
+              value={config.signoff?.repair || {}}
+              onChange={(patch) => updateSignoff('repair', patch)}
+            />
+          </div>
+        </fieldset>
 
+        {/* Error/Success Messages */}
         {configQuery.error && (
           <p className="text-sm text-red-600">{(configQuery.error as any)?.response?.data?.error?.message || 'Failed to load config'}</p>
         )}
         {saveMutation.error && (
           <p className="text-sm text-red-600">{(saveMutation.error as any)?.response?.data?.error?.message || 'Failed to save config'}</p>
         )}
+        {saveMsg && (
+          <p className={`text-sm ${saveMsg.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>{saveMsg.text}</p>
+        )}
 
         <div className="flex justify-end">
-          <Button type="button" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || configQuery.isLoading}>
+          <Button type="button" onClick={() => { setSaveMsg(null); saveMutation.mutate(); }} disabled={saveMutation.isPending || configQuery.isLoading}>
             {saveMutation.isPending ? 'Saving...' : 'Save Report Settings'}
           </Button>
         </div>
@@ -202,11 +250,11 @@ export default function ReportSettingsPanel({ workOrderId }: { workOrderId: stri
   );
 }
 
-function TextField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function TextField({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
   return (
     <div className="space-y-1">
       <Label>{label}</Label>
-      <Input value={value} onChange={(e) => onChange(e.target.value)} />
+      <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
     </div>
   );
 }
@@ -257,8 +305,8 @@ function SignoffEditor({
   onChange,
 }: {
   title: string;
-  value: { name?: string; declaration?: string; signature?: string; mode?: string; date?: string };
-  onChange: (patch: Partial<{ name?: string; declaration?: string; signature?: string; mode?: string; date?: string }>) => void;
+  value: SignoffEntry;
+  onChange: (patch: Partial<SignoffEntry>) => void;
 }) {
   return (
     <div className="rounded-md border p-3 space-y-2">
@@ -266,8 +314,21 @@ function SignoffEditor({
       <TextField label="Name" value={value.name || ''} onChange={(v) => onChange({ name: v })} />
       <LongField label="Declaration (HTML supported)" value={value.declaration || ''} onChange={(v) => onChange({ declaration: v })} />
       <div className="grid grid-cols-2 gap-2">
-        <TextField label="Mode" value={value.mode || ''} onChange={(v) => onChange({ mode: v })} />
-        <TextField label="Date (ISO)" value={value.date || ''} onChange={(v) => onChange({ date: v })} />
+        <div className="space-y-1">
+          <Label>Signature mode</Label>
+          <select
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+            value={value.mode || 'dark'}
+            onChange={(e) => onChange({ mode: e.target.value })}
+          >
+            <option value="dark">Dark</option>
+            <option value="light">Light</option>
+          </select>
+        </div>
+        <div className="space-y-1">
+          <Label>Date</Label>
+          <Input type="date" value={value.date ? value.date.slice(0, 10) : ''} onChange={(e) => onChange({ date: e.target.value ? new Date(e.target.value).toISOString() : '' })} />
+        </div>
       </div>
       <SignaturePad
         value={value.signature || ''}

@@ -2,6 +2,14 @@ import apiClient from './client';
 
 const BASE = '/reports';
 
+export type SignoffEntry = {
+  name?: string;
+  declaration?: string;
+  signature?: string;
+  mode?: string;
+  date?: string;
+};
+
 export type ReportConfigPayload = {
   title?: string;
   workInstruction?: string;
@@ -17,24 +25,17 @@ export type ReportConfigPayload = {
   togglePhotoName?: boolean;
   supervisorName?: string;
   inspectorName?: string;
+  confidential?: string;
+  toggleRovUse?: boolean;
+  rovDetails?: string;
+  repairAgentName?: string;
   coverImage?: { mediaId?: string } | null;
   clientLogo?: { mediaId?: string } | null;
   generalArrangementImage?: { mediaId?: string } | null;
   signoff?: {
-    supervisor?: {
-      name?: string;
-      declaration?: string;
-      signature?: string;
-      mode?: string;
-      date?: string;
-    };
-    inspector?: {
-      name?: string;
-      declaration?: string;
-      signature?: string;
-      mode?: string;
-      date?: string;
-    };
+    supervisor?: SignoffEntry;
+    inspector?: SignoffEntry;
+    repair?: SignoffEntry;
   };
 };
 
