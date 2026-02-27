@@ -27,7 +27,11 @@ type InternalRequestConfig = RequestConfig & {
 };
 
 const RAW_API_BASE = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
-const API_BASE = RAW_API_BASE ? RAW_API_BASE.replace(/\/+$/, '') : '';
+// Normalise: strip trailing slashes and ensure /api/v1 suffix is present,
+// so VITE_API_URL can be either "https://host" or "https://host/api/v1".
+const API_BASE = RAW_API_BASE
+  ? RAW_API_BASE.replace(/\/+$/, '').replace(/\/api\/v1$/, '') + '/api/v1'
+  : '';
 
 function buildUrl(url: string, params?: QueryParams): string {
   const baseUrl = API_BASE ? `${API_BASE}${url}` : `/api/v1${url}`;
