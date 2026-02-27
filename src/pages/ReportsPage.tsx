@@ -2,7 +2,11 @@ import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { FileText, Download, Loader2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import {
+  FileText, Download, Loader2, ClipboardCheck, Ship,
+  BarChart3, ScrollText,
+} from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -15,8 +19,12 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { workOrdersApi } from '@/api/work-orders';
 import { reportsApi } from '@/api/reports';
+import BFMPReportForm from '@/components/reports/BFMPReportForm';
+import ComplianceSummaryForm from '@/components/reports/ComplianceSummaryForm';
+import AuditReportForm from '@/components/reports/AuditReportForm';
 
 type ReportKind = 'inspection' | 'work-order' | 'bfmp' | 'compliance' | 'audit';
+type ActiveView = 'grid' | 'bfmp' | 'compliance' | 'audit';
 
 const REPORT_CONFIG: Array<{
   id: ReportKind;
@@ -24,18 +32,19 @@ const REPORT_CONFIG: Array<{
   desc: string;
   icon: typeof FileText;
   needsWorkOrder: boolean;
+  status: 'active' | 'new';
 }> = [
-  { id: 'inspection', title: 'Inspection Report', desc: 'Detailed inspection findings with photos and measurements', icon: FileText, needsWorkOrder: true },
-  { id: 'work-order', title: 'Work Order Report', desc: 'Complete work order lifecycle with all submissions', icon: FileText, needsWorkOrder: true },
-  { id: 'bfmp', title: 'BFMP', desc: 'IMO-compliant Biofouling Management Plan', icon: FileText, needsWorkOrder: false },
-  { id: 'compliance', title: 'Compliance Summary', desc: 'Fleet-wide compliance status overview', icon: FileText, needsWorkOrder: false },
-  { id: 'audit', title: 'Audit Report', desc: 'Filtered audit trail export', icon: FileText, needsWorkOrder: false },
+  { id: 'inspection', title: 'Inspection Report', desc: 'Detailed inspection findings with photos and measurements', icon: ClipboardCheck, needsWorkOrder: true, status: 'active' },
+  { id: 'work-order', title: 'Work Order Report', desc: 'Complete work order lifecycle with all submissions', icon: FileText, needsWorkOrder: true, status: 'active' },
+  { id: 'bfmp', title: 'BFMP', desc: 'IMO-compliant Biofouling Management Plan with vessel details, AFS, and risk assessment', icon: Ship, needsWorkOrder: false, status: 'new' },
+  { id: 'compliance', title: 'Compliance Summary', desc: 'Fleet-wide compliance status overview across all regulatory categories', icon: BarChart3, needsWorkOrder: false, status: 'new' },
+  { id: 'audit', title: 'Audit Report', desc: 'Filtered audit trail export with configurable scope and event types', icon: ScrollText, needsWorkOrder: false, status: 'new' },
 ];
 
 export default function ReportsPage() {
+  const [activeView, setActiveView] = useState<ActiveView>('grid');
   const [reportType, setReportType] = useState<ReportKind | null>(null);
   const [workOrderId, setWorkOrderId] = useState('');
-  const [showComingSoon, setShowComingSoon] = useState(false);
 
   const { data: workOrdersRes, isLoading: loadingWorkOrders } = useQuery({
     queryKey: ['workOrders', { limit: '100' }],
@@ -55,7 +64,10 @@ export default function ReportsPage() {
       setReportType(report.id as 'inspection' | 'work-order');
       return;
     }
-    setShowComingSoon(true);
+    // Navigate to dedicated form for non-work-order reports
+    if (report.id === 'bfmp') setActiveView('bfmp');
+    else if (report.id === 'compliance') setActiveView('compliance');
+    else if (report.id === 'audit') setActiveView('audit');
   };
 
   const handleConfirmGenerate = () => {
@@ -96,6 +108,11 @@ export default function ReportsPage() {
   const canConfirm = workOrderId && needsWorkOrder;
   const isGenerating = generateMutation.isPending;
 
+  // Render active form view
+  if (activeView === 'bfmp') return <BFMPReportForm onBack={() => setActiveView('grid')} />;
+  if (activeView === 'compliance') return <ComplianceSummaryForm onBack={() => setActiveView('grid')} />;
+  if (activeView === 'audit') return <AuditReportForm onBack={() => setActiveView('grid')} />;
+
   return (
     <div className="space-y-6">
       <div>
@@ -107,11 +124,18 @@ export default function ReportsPage() {
         {REPORT_CONFIG.map((report) => {
           const ReportIcon = report.icon;
           return (
-            <Card key={report.id}>
+            <Card key={report.id} className="relative overflow-hidden transition-shadow hover:shadow-md">
+              {report.status === 'new' && (
+                <div className="absolute top-3 right-3">
+                  <Badge className="bg-ocean text-white text-xs">New</Badge>
+                </div>
+              )}
               <CardHeader>
-                <ReportIcon className="h-8 w-8 text-ocean mb-2" />
+                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-ocean/10 mb-2">
+                  <ReportIcon className="h-6 w-6 text-ocean" />
+                </div>
                 <CardTitle className="text-lg">{report.title}</CardTitle>
-                <CardDescription>{report.desc}</CardDescription>
+                <CardDescription className="text-sm">{report.desc}</CardDescription>
               </CardHeader>
               <CardContent>
                 <Button
@@ -119,7 +143,8 @@ export default function ReportsPage() {
                   className="w-full"
                   onClick={() => handleGenerateClick(report)}
                 >
-                  <Download className="mr-2 h-4 w-4" /> Generate
+                  <Download className="mr-2 h-4 w-4" />
+                  {report.needsWorkOrder ? 'Generate' : 'Configure & Generate'}
                 </Button>
               </CardContent>
             </Card>
@@ -147,7 +172,7 @@ export default function ReportsPage() {
                 disabled={loadingWorkOrders}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder={loadingWorkOrders ? 'Loading…' : 'Select work order'} />
+                  <SelectValue placeholder={loadingWorkOrders ? 'Loading...' : 'Select work order'} />
                 </SelectTrigger>
                 <SelectContent>
                   {workOrders.map((wo: any) => (
@@ -172,21 +197,6 @@ export default function ReportsPage() {
               {reportType === 'work-order' && isGenerating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {reportType === 'inspection' ? 'Open viewer' : 'Generate'}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Coming soon for BFMP, Compliance, Audit */}
-      <Dialog open={showComingSoon} onOpenChange={setShowComingSoon}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Coming soon</DialogTitle>
-            <DialogDescription>
-              This report type is not yet available. Inspection Report and Work Order Report can be generated now.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button onClick={() => setShowComingSoon(false)}>OK</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
