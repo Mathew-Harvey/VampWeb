@@ -50,8 +50,20 @@ function parseAttachmentItems(rawAttachments: unknown): AttachmentLike[] {
 
 function toImageSrc(raw: string): string {
   if (!raw) return '';
-  if (/^https?:\/\//i.test(raw) || /^data:/i.test(raw) || /^blob:/i.test(raw)) return raw;
-  const apiBase = (import.meta.env.VITE_API_URL as string | undefined)?.trim() || 'http://localhost:3001';
+  if (/^data:/i.test(raw) || /^blob:/i.test(raw)) return raw;
+
+  // Strip localhost origins that may have been stored in older data
+  let url = raw;
+  if (/^https?:\/\/localhost(:\d+)?/i.test(url)) {
+    url = url.replace(/^https?:\/\/localhost(:\d+)?/i, '');
+  }
+
+  // Already a full remote URL (e.g. S3) — use as-is
+  if (/^https?:\/\//i.test(url)) return url;
+
+  // Relative path — prepend the API origin
+  const apiBase = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
+  if (!apiBase) return url;
   const origin = (() => {
     try {
       return new URL(apiBase).origin;
@@ -59,7 +71,7 @@ function toImageSrc(raw: string): string {
       return apiBase.replace(/\/+$/, '');
     }
   })();
-  return `${origin.replace(/\/+$/, '')}/${raw.replace(/^\/+/, '')}`;
+  return `${origin.replace(/\/+$/, '')}/${url.replace(/^\/+/, '')}`;
 }
 
 function resolveAttachmentPreviewSource(item: AttachmentLike): string | null {
