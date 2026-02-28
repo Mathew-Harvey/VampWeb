@@ -74,19 +74,17 @@ export default function ReportsPage() {
     if (reportType !== 'inspection' && reportType !== 'work-order') return;
     if (!workOrderId) return;
 
-    if (reportType === 'inspection') {
-      const url = reportsApi.getViewUrl(workOrderId);
-      window.open(url, '_blank', 'noopener,noreferrer');
-      setReportType(null);
-      return;
-    }
-
     generateMutation.mutate(
-      { type: 'work-order', workOrderId },
+      { type: reportType, workOrderId },
       {
         onSuccess: (res) => {
           const payload = res?.data?.data;
-          if (payload) {
+          if (payload?.html) {
+            const blob = new Blob([payload.html], { type: 'text/html' });
+            const u = URL.createObjectURL(blob);
+            window.open(u, '_blank');
+            setTimeout(() => URL.revokeObjectURL(u), 60000);
+          } else if (payload) {
             const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
             const u = URL.createObjectURL(blob);
             window.open(u, '_blank');
@@ -193,9 +191,9 @@ export default function ReportsPage() {
                 Open context (debug)
               </Button>
             )}
-            <Button onClick={handleConfirmGenerate} disabled={!canConfirm || (reportType === 'work-order' && isGenerating)}>
-              {reportType === 'work-order' && isGenerating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {reportType === 'inspection' ? 'Open viewer' : 'Generate'}
+            <Button onClick={handleConfirmGenerate} disabled={!canConfirm || isGenerating}>
+              {isGenerating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Generate
             </Button>
           </DialogFooter>
         </DialogContent>

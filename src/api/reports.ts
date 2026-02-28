@@ -2,6 +2,18 @@ import apiClient from './client';
 
 const BASE = '/reports';
 
+/** Build an absolute URL for API endpoints, ensuring /api/v1 is always included. */
+function buildAbsoluteApiUrl(path: string): string {
+  const raw = (import.meta.env.VITE_API_URL as string | undefined)?.trim()?.replace(/\/+$/, '');
+  if (raw) {
+    // If VITE_API_URL already ends with /api/v1, use as-is; otherwise append it
+    const base = /\/api\/v\d+$/.test(raw) ? raw : `${raw}/api/v1`;
+    return `${base}${path}`;
+  }
+  if (typeof window !== 'undefined') return `${window.location.origin}/api/v1${path}`;
+  return `/api/v1${path}`;
+}
+
 export type SignoffEntry = {
   name?: string;
   declaration?: string;
@@ -211,28 +223,16 @@ export const reportsApi = {
 
   /** Absolute URL for report preview (open in new tab; cookies sent same-origin). */
   getPreviewUrl: (workOrderId: string) => {
-    const base = (import.meta.env.VITE_API_URL as string)?.replace(/\/+$/, '');
-    const path = `${BASE}/preview/${workOrderId}`;
-    if (base) return `${base}${path}`;
-    if (typeof window !== 'undefined') return `${window.location.origin}/api/v1${path}`;
-    return `/api/v1${path}`;
+    return buildAbsoluteApiUrl(`${BASE}/preview/${workOrderId}`);
   },
 
   /** Absolute URL for branded report viewer. */
   getViewUrl: (workOrderId: string) => {
-    const base = (import.meta.env.VITE_API_URL as string)?.replace(/\/+$/, '');
-    const path = `${BASE}/view/${workOrderId}`;
-    if (base) return `${base}${path}`;
-    if (typeof window !== 'undefined') return `${window.location.origin}/api/v1${path}`;
-    return `/api/v1${path}`;
+    return buildAbsoluteApiUrl(`${BASE}/view/${workOrderId}`);
   },
 
   /** Absolute URL for report context (debug/integration checks). */
   getContextUrl: (workOrderId: string) => {
-    const base = (import.meta.env.VITE_API_URL as string)?.replace(/\/+$/, '');
-    const path = `${BASE}/context/${workOrderId}`;
-    if (base) return `${base}${path}`;
-    if (typeof window !== 'undefined') return `${window.location.origin}/api/v1${path}`;
-    return `/api/v1${path}`;
+    return buildAbsoluteApiUrl(`${BASE}/context/${workOrderId}`);
   },
 };
