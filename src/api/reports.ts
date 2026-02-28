@@ -209,30 +209,34 @@ export const reportsApi = {
   generateAudit: (payload: AuditReportPayload) =>
     apiClient.post<{ data: any }>(`${BASE}/generate`, { type: 'audit', ...payload }),
 
-  /** Absolute URL for report preview (open in new tab; cookies sent same-origin). */
-  getPreviewUrl: (workOrderId: string) => {
-    const base = (import.meta.env.VITE_API_URL as string)?.replace(/\/+$/, '');
-    const path = `${BASE}/preview/${workOrderId}`;
-    if (base) return `${base}${path}`;
+  /** Build absolute API URL, ensuring /api/v1 prefix is present. */
+  _buildUrl: (path: string) => {
+    const raw = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
+    if (raw) {
+      const base = raw.replace(/\/+$/, '').replace(/\/api\/v1$/, '');
+      return `${base}/api/v1${path}`;
+    }
     if (typeof window !== 'undefined') return `${window.location.origin}/api/v1${path}`;
     return `/api/v1${path}`;
   },
+
+  /** Absolute URL for report preview (open in new tab; cookies sent same-origin). */
+  getPreviewUrl: (workOrderId: string, type?: string) =>
+    reportsApi._buildUrl(`${BASE}/preview/${workOrderId}${type && type !== 'inspection' ? `?type=${type}` : ''}`),
 
   /** Absolute URL for branded report viewer. */
-  getViewUrl: (workOrderId: string) => {
-    const base = (import.meta.env.VITE_API_URL as string)?.replace(/\/+$/, '');
-    const path = `${BASE}/view/${workOrderId}`;
-    if (base) return `${base}${path}`;
-    if (typeof window !== 'undefined') return `${window.location.origin}/api/v1${path}`;
-    return `/api/v1${path}`;
-  },
+  getViewUrl: (workOrderId: string, type?: string) =>
+    reportsApi._buildUrl(`${BASE}/view/${workOrderId}${type && type !== 'inspection' ? `?type=${type}` : ''}`),
 
   /** Absolute URL for report context (debug/integration checks). */
-  getContextUrl: (workOrderId: string) => {
-    const base = (import.meta.env.VITE_API_URL as string)?.replace(/\/+$/, '');
-    const path = `${BASE}/context/${workOrderId}`;
-    if (base) return `${base}${path}`;
-    if (typeof window !== 'undefined') return `${window.location.origin}/api/v1${path}`;
-    return `/api/v1${path}`;
+  getContextUrl: (workOrderId: string) =>
+    reportsApi._buildUrl(`${BASE}/context/${workOrderId}`),
+
+  /** Open generated HTML in a new tab. Used by BFMP, compliance, and audit reports. */
+  openHtmlInNewTab: (html: string) => {
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
   },
 };

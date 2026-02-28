@@ -234,19 +234,7 @@ export default function AuditReportForm({ onBack }: { onBack: () => void }) {
     onSuccess: (res) => {
       const payload = res?.data?.data;
       if (payload?.html) {
-        const blob = new Blob([payload.html], { type: 'text/html' });
-        const url = URL.createObjectURL(blob);
-        window.open(url, '_blank');
-        setTimeout(() => URL.revokeObjectURL(url), 2000);
-      } else if (payload) {
-        const mimeType = form.exportFormat === 'CSV' ? 'text/csv' : 'application/json';
-        const content = form.exportFormat === 'CSV' && typeof payload === 'string'
-          ? payload
-          : JSON.stringify(payload, null, 2);
-        const blob = new Blob([content], { type: mimeType });
-        const url = URL.createObjectURL(blob);
-        window.open(url, '_blank');
-        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        reportsApi.openHtmlInNewTab(payload.html);
       }
       setSaveMsg({ type: 'success', text: 'Audit report generated successfully' });
     },
