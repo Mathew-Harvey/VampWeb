@@ -417,39 +417,39 @@ function FormEntryCard({ entry, isActive, onToggle, collab, workOrderId, workOrd
 
   const [capturing, setCapturing] = useState(false);
 
-  const handleCapture = () => {
+  const handleCapture = async () => {
     const callRunning = isInCall && activeWorkOrderId === workOrderId;
     if (!callRunning) { startCall(workOrderId, workOrderTitle); return; }
 
+    const fn = useCallStore.getState().captureFunction;
+    if (!fn) return;
+
     setCapturing(true);
 
-    // Set callback first, then immediately invoke capture.
-    // Zustand getState() is synchronous so the callback is available instantly.
-    useCallStore.getState().setScreenshotTarget(entry.id, async (dataUrl: string) => {
-      try {
-        const now = Date.now();
-        const file = dataUrlToFile(dataUrl, `work-order-${workOrderId}-${entry.id}-${now}.jpg`);
-        const uploaded = await mediaUpload.mutateAsync({ file, workOrderId });
-        collab.addScreenshot(entry.id, {
-          mediaId: uploaded.id,
-          title: uploaded.originalName || `${comp?.name || 'Evidence'} ${attachmentItems.length + 1}`,
-          path: comp?.name || '',
-          url: uploaded.url,
-        });
-      } catch {
-        // Fallback to raw data URL so evidence is not lost if upload fails
-        collab.addScreenshot(entry.id, dataUrl);
-      } finally {
-        useCallStore.getState().setScreenshotTarget(null, null);
-        setCapturing(false);
-      }
-    });
+    try {
+      // Use a promise so we can await the full capture-upload cycle
+      // and always clean up the capturing state.
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        useCallStore.getState().setScreenshotTarget(entry.id, (url: string) => resolve(url));
+        fn();
+        // If capture fails to call the callback (e.g. no video frames), reject after timeout
+        setTimeout(() => reject(new Error('capture_timeout')), 3000);
+      });
 
-    const fn = useCallStore.getState().captureFunction;
-    if (fn) {
-      fn();
-    } else {
       useCallStore.getState().setScreenshotTarget(null, null);
+
+      const now = Date.now();
+      const file = dataUrlToFile(dataUrl, `work-order-${workOrderId}-${entry.id}-${now}.jpg`);
+      const uploaded = await mediaUpload.mutateAsync({ file, workOrderId });
+      collab.addScreenshot(entry.id, {
+        mediaId: uploaded.id,
+        title: uploaded.originalName || `${comp?.name || 'Evidence'} ${attachmentItems.length + 1}`,
+        path: comp?.name || '',
+        url: uploaded.url,
+      });
+    } catch {
+      useCallStore.getState().setScreenshotTarget(null, null);
+    } finally {
       setCapturing(false);
     }
   };
