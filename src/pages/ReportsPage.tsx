@@ -130,13 +130,13 @@ export default function ReportsPage() {
 
       {/* Work order selection for Inspection / Work Order reports */}
       <Dialog open={needsWorkOrder} onOpenChange={(open) => !open && setReportType(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>
               {reportType === 'inspection' ? 'Inspection Report' : 'Work Order Report'}
             </DialogTitle>
             <DialogDescription>
-              Select a work order. Use context for integration/debug, preview/generate for final output.
+              Select a work order to generate the report.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -160,7 +160,7 @@ export default function ReportsPage() {
               </Select>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2 flex-wrap">
             <Button variant="outline" onClick={() => setReportType(null)}>
               Cancel
             </Button>

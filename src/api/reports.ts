@@ -1,4 +1,5 @@
 import apiClient from './client';
+import { useAuthStore } from '@/stores/auth.store';
 
 const BASE = '/reports';
 
@@ -220,17 +221,32 @@ export const reportsApi = {
     return `/api/v1${path}`;
   },
 
-  /** Absolute URL for report preview (open in new tab; cookies sent same-origin). */
-  getPreviewUrl: (workOrderId: string, type?: string) =>
-    reportsApi._buildUrl(`${BASE}/preview/${workOrderId}${type && type !== 'inspection' ? `?type=${type}` : ''}`),
+  /** Absolute URL for report preview (open in new tab). */
+  getPreviewUrl: (workOrderId: string, type?: string) => {
+    const params = new URLSearchParams();
+    if (type && type !== 'inspection') params.set('type', type);
+    const token = useAuthStore.getState().accessToken;
+    if (token) params.set('token', token);
+    const qs = params.toString();
+    return reportsApi._buildUrl(`${BASE}/preview/${workOrderId}${qs ? `?${qs}` : ''}`);
+  },
 
   /** Absolute URL for branded report viewer. */
-  getViewUrl: (workOrderId: string, type?: string) =>
-    reportsApi._buildUrl(`${BASE}/view/${workOrderId}${type && type !== 'inspection' ? `?type=${type}` : ''}`),
+  getViewUrl: (workOrderId: string, type?: string) => {
+    const params = new URLSearchParams();
+    if (type && type !== 'inspection') params.set('type', type);
+    const token = useAuthStore.getState().accessToken;
+    if (token) params.set('token', token);
+    const qs = params.toString();
+    return reportsApi._buildUrl(`${BASE}/view/${workOrderId}${qs ? `?${qs}` : ''}`);
+  },
 
   /** Absolute URL for report context (debug/integration checks). */
-  getContextUrl: (workOrderId: string) =>
-    reportsApi._buildUrl(`${BASE}/context/${workOrderId}`),
+  getContextUrl: (workOrderId: string) => {
+    const token = useAuthStore.getState().accessToken;
+    const qs = token ? `?token=${encodeURIComponent(token)}` : '';
+    return reportsApi._buildUrl(`${BASE}/context/${workOrderId}${qs}`);
+  },
 
   /** Open generated HTML in a new tab. Used by BFMP, compliance, and audit reports. */
   openHtmlInNewTab: (html: string) => {

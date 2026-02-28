@@ -7,7 +7,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 export default function FloatingCallPanel() {
   const {
     activeWorkOrderId, activeWorkOrderTitle, isPanelOpen,
-    isInCall, endCall, openPanel, screenshotCallback,
+    isInCall, endCall, openPanel,
   } = useCallStore();
 
   const [isMinimized, setIsMinimized] = useState(false);
@@ -180,8 +180,6 @@ export default function FloatingCallPanel() {
         <VideoRoom
           workOrderId={activeWorkOrderId}
           compact
-          onScreenshot={screenshotCallback || undefined}
-          screenshotMode={!!screenshotCallback}
         />
       </div>
     </div>
