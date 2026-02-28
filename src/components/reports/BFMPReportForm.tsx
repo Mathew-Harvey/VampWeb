@@ -329,15 +329,7 @@ export default function BFMPReportForm({ onBack }: { onBack: () => void }) {
     onSuccess: (res) => {
       const payload = res?.data?.data;
       if (payload?.html) {
-        const blob = new Blob([payload.html], { type: 'text/html' });
-        const url = URL.createObjectURL(blob);
-        window.open(url, '_blank');
-        setTimeout(() => URL.revokeObjectURL(url), 2000);
-      } else if (payload) {
-        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        window.open(url, '_blank');
-        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        reportsApi.openHtmlInNewTab(payload.html);
       }
       setSaveMsg({ type: 'success', text: 'BFMP report generated successfully' });
     },

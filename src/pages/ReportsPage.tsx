@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
-  FileText, Download, Loader2, ClipboardCheck, Ship,
+  FileText, Download, ClipboardCheck, Ship,
   BarChart3, ScrollText,
 } from 'lucide-react';
 import {
@@ -53,11 +53,6 @@ export default function ReportsPage() {
   });
   const workOrders = workOrdersRes?.data?.data ?? [];
 
-  const generateMutation = useMutation({
-    mutationFn: ({ type, workOrderId }: { type: 'inspection' | 'work-order'; workOrderId: string }) =>
-      reportsApi.generate(type, workOrderId),
-  });
-
   const handleGenerateClick = (report: (typeof REPORT_CONFIG)[0]) => {
     if (report.needsWorkOrder) {
       setWorkOrderId('');
@@ -74,28 +69,10 @@ export default function ReportsPage() {
     if (reportType !== 'inspection' && reportType !== 'work-order') return;
     if (!workOrderId) return;
 
-    if (reportType === 'inspection') {
-      const url = reportsApi.getViewUrl(workOrderId);
-      window.open(url, '_blank', 'noopener,noreferrer');
-      setReportType(null);
-      return;
-    }
-
-    generateMutation.mutate(
-      { type: 'work-order', workOrderId },
-      {
-        onSuccess: (res) => {
-          const payload = res?.data?.data;
-          if (payload) {
-            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-            const u = URL.createObjectURL(blob);
-            window.open(u, '_blank');
-            setTimeout(() => URL.revokeObjectURL(u), 1000);
-          }
-          setReportType(null);
-        },
-      }
-    );
+    // Both inspection and work-order reports now open in the branded viewer
+    const url = reportsApi.getViewUrl(workOrderId, reportType);
+    window.open(url, '_blank', 'noopener,noreferrer');
+    setReportType(null);
   };
 
   const handleOpenContext = () => {
@@ -106,7 +83,6 @@ export default function ReportsPage() {
 
   const needsWorkOrder = reportType === 'inspection' || reportType === 'work-order';
   const canConfirm = workOrderId && needsWorkOrder;
-  const isGenerating = generateMutation.isPending;
 
   // Render active form view
   if (activeView === 'bfmp') return <BFMPReportForm onBack={() => setActiveView('grid')} />;
@@ -193,9 +169,8 @@ export default function ReportsPage() {
                 Open context (debug)
               </Button>
             )}
-            <Button onClick={handleConfirmGenerate} disabled={!canConfirm || (reportType === 'work-order' && isGenerating)}>
-              {reportType === 'work-order' && isGenerating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {reportType === 'inspection' ? 'Open viewer' : 'Generate'}
+            <Button onClick={handleConfirmGenerate} disabled={!canConfirm}>
+              Open Report Viewer
             </Button>
           </DialogFooter>
         </DialogContent>
