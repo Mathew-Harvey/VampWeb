@@ -26,7 +26,10 @@ type InternalRequestConfig = RequestConfig & {
   data?: BodyInit | null;
 };
 
-const RAW_API_BASE = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
+// Base URL for API: use VITE_API_URL, or in dev fallback to backend so requests don't hit Vite
+const RAW_API_BASE =
+  (import.meta.env.VITE_API_URL as string | undefined)?.trim() ||
+  (import.meta.env.DEV ? 'http://localhost:3001' : '');
 // Normalise: strip trailing slashes and ensure /api/v1 suffix is present,
 // so VITE_API_URL can be either "https://host" or "https://host/api/v1".
 const API_BASE = RAW_API_BASE

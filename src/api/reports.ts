@@ -212,7 +212,9 @@ export const reportsApi = {
 
   /** Build absolute API URL, ensuring /api/v1 prefix is present. */
   _buildUrl: (path: string) => {
-    const raw = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
+    const raw =
+      (import.meta.env.VITE_API_URL as string | undefined)?.trim() ||
+      (import.meta.env.DEV ? 'http://localhost:3001' : '');
     if (raw) {
       const base = raw.replace(/\/+$/, '').replace(/\/api\/v1$/, '');
       return `${base}/api/v1${path}`;
